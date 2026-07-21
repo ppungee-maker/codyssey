@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass, field
 
 from playwright.sync_api import Page
@@ -47,12 +48,19 @@ class QAMonitor:
         lines = [f"\n================ QA 리포트 ({title}) ================"]
         for label, value in checks.items():
             lines.append(f"  {label:22}: {value}")
-        lines.append(f"  {'콘솔 에러/경고':22}: {len(self.console_messages)} 건")
-        for text in self.console_messages[:10]:
-            lines.append(f"     - {text[:140]}")
+        # 콘솔 메시지는 첫 줄 기준으로 중복 집계 (같은 경고 도배 방지)
+        console_counts = Counter(m.splitlines()[0][:120] for m in self.console_messages)
+        lines.append(f"  {'콘솔 에러/경고':22}: {len(self.console_messages)} 건 "
+                     f"(고유 {len(console_counts)}종)")
+        for text, cnt in console_counts.most_common(10):
+            suffix = f"  ×{cnt}" if cnt > 1 else ""
+            lines.append(f"     - {text}{suffix}")
+        # HTTP 실패도 (상태·메서드·경로) 기준 중복 집계
+        http_counts = Counter((s, m, u.split("?")[0]) for s, m, u in self.http_failures)
         lines.append(f"  {'HTTP 실패(4xx/5xx/net)':22}: {len(self.http_failures)} 건  ← 실제 점검 대상")
-        for status, method, url in self.http_failures[:15]:
-            lines.append(f"     - [{status}] {method} {url[:120]}")
+        for (status, method, url), cnt in http_counts.most_common(15):
+            suffix = f"  ×{cnt}" if cnt > 1 else ""
+            lines.append(f"     - [{status}] {method} {url[:110]}{suffix}")
         lines.append(f"  {'(참고) 네비게이션 취소':22}: {len(self.aborted)} 건  ← 페이지 전환 중 취소, 정상")
         lines.append("=" * 58)
         return "\n".join(lines)
