@@ -52,8 +52,8 @@ src/codyssey_qa/
 ## 산출물
 
 - `screenshots/`  — 이동/노드별 화면 캡처 (`node-B1-1.png` 등)
-- `qa-reports/`   — `map` 실행 시 노드별 결과 + 누적 QA 신호를 담은 타임스탬프 JSON
-  (`map-qa-YYYYMMDD-HHMMSS.json`)
+- `qa-reports/`   — `map` 실행 시 노드별 결과 + 누적 QA 신호를 담은 타임스탬프 리포트.
+  같은 이름으로 **JSON**(`map-qa-*.json`, 기계용)과 **Markdown**(`map-qa-*.md`, 사람용) 동시 생성
 
 둘 다 `.gitignore` 처리되어 커밋되지 않는다 (로컬 QA 산출물).
 

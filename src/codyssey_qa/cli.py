@@ -99,22 +99,20 @@ def cmd_map(settings: config.Settings, headed: bool) -> int:
             checks={"순회 노드 수": str(len(nodes)), "미션 모달 정상": f"{opened_cnt}/{len(nodes)}"},
         ))
 
-        # ── JSON 리포트 저장 ──
-        report_path = _save_map_report(url, nodes, opened_cnt, monitor)
-        print(f"\n[✓] JSON 리포트 저장: {report_path}")
+        # ── 리포트 저장 (JSON + Markdown) ──
+        json_path, md_path = _save_map_report(url, nodes, opened_cnt, monitor)
+        print(f"\n[✓] JSON 리포트 저장: {json_path}")
+        print(f"[✓] Markdown 리포트 저장: {md_path}")
 
         page.wait_for_timeout(1500)
         browser.close()
         return 0
 
 
-def _save_map_report(map_url, nodes, opened_cnt, monitor) -> str:
-    """노드별 결과 + 누적 QA 신호를 타임스탬프 JSON 으로 저장하고 경로를 반환."""
-    config.REPORTS_DIR.mkdir(exist_ok=True)
-    ts = datetime.now()
-    report = {
+def _build_map_report(map_url, nodes, opened_cnt, monitor, generated_at) -> dict:
+    return {
         "kind": "b1-map-node-traversal",
-        "generated_at": ts.isoformat(timespec="seconds"),
+        "generated_at": generated_at.isoformat(timespec="seconds"),
         "map_url": map_url,
         "summary": {
             "nodes_total": len(nodes),
@@ -124,9 +122,65 @@ def _save_map_report(map_url, nodes, opened_cnt, monitor) -> str:
         },
         "nodes": [asdict(n) for n in nodes],
     }
-    path = config.REPORTS_DIR / f"map-qa-{ts:%Y%m%d-%H%M%S}.json"
-    path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    return str(path.relative_to(config.PROJECT_ROOT))
+
+
+def _render_markdown(report: dict) -> str:
+    s = report["summary"]
+    out = [
+        "# B1 학습맵 노드 순회 QA 리포트",
+        "",
+        f"- 생성: `{report['generated_at']}`",
+        f"- 맵: {report['map_url']}",
+        f"- 노드: {s['nodes_total']}개 (미션 정상 **{s['missions_ok']}** / 잠김 {s['missions_locked']})",
+        "",
+        "## 요약",
+        "",
+        f"- 콘솔 에러/경고: **{s['console_total']}건** (고유 {len(s['console_unique'])}종)",
+        f"- HTTP 실패(4xx/5xx/net): **{s['http_failures_total']}건** ← 실제 점검 대상",
+        f"- 네비게이션 취소(정상): {s['navigation_aborted']}건",
+        "",
+        "## 노드별 결과",
+        "",
+        "| 노드 | 모달 | 미션 | 콘솔Δ | HTTPΔ | 캡처 |",
+        "|---|---|---|---|---|---|",
+    ]
+    for n in report["nodes"]:
+        modal = "✅" if n["modal_opened"] else "🔒 잠김"
+        title = (n["mission_title"] or "").replace("미션 :", "").strip() or "-"
+        shot = n["shot"] or "-"
+        out.append(f"| {n['label']} | {modal} | {title} | {n['console_delta']} | {n['http_delta']} | {shot} |")
+
+    out += ["", "## 콘솔 신호 (중복 집계)", ""]
+    if s["console_unique"]:
+        for item in s["console_unique"]:
+            out.append(f"- `{item['message'].strip()}` ×{item['count']}")
+    else:
+        out.append("- (없음)")
+
+    out += ["", "## HTTP 실패", ""]
+    if s["http_failures"]:
+        for item in s["http_failures"]:
+            out.append(f"- [{item['status']}] {item['method']} {item['url']} ×{item['count']}")
+    else:
+        out.append("- (없음) ✅")
+
+    out.append("")
+    return "\n".join(out)
+
+
+def _save_map_report(map_url, nodes, opened_cnt, monitor) -> tuple[str, str]:
+    """노드별 결과 + 누적 QA 신호를 JSON + Markdown 두 포맷으로 저장하고 경로를 반환."""
+    config.REPORTS_DIR.mkdir(exist_ok=True)
+    ts = datetime.now()
+    report = _build_map_report(map_url, nodes, opened_cnt, monitor, ts)
+
+    base = config.REPORTS_DIR / f"map-qa-{ts:%Y%m%d-%H%M%S}"
+    json_path = base.with_suffix(".json")
+    md_path = base.with_suffix(".md")
+    json_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    md_path.write_text(_render_markdown(report), encoding="utf-8")
+    rel = lambda p: str(p.relative_to(config.PROJECT_ROOT))
+    return rel(json_path), rel(md_path)
 
 
 def build_parser() -> argparse.ArgumentParser:
