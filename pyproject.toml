@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codyssey-qa"
+version = "0.1.0"
+description = "코디세이 사이트 QA 자동화 (Playwright, 항상 headed, 세션 재사용)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "playwright==1.61.0",
+]
+
+[project.scripts]
+codyssey-qa = "codyssey_qa.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

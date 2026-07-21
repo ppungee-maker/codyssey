@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# 패키징 산출물
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Playwright / QA 산출물
+auth_state.json
+storage_state.json
+*.storage.json
+test-results/
+qa-reports/
+screenshots/
+traces/
+videos/
+
+# 로컬 비밀정보
+.env
+.env.local

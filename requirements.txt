@@ -1,0 +1,3 @@
+# 의존성 정의는 pyproject.toml 이 정본(single source of truth).
+# 개발 설치:  pip install -e .
+-e .
