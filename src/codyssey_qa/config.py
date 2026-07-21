@@ -23,6 +23,7 @@ PROJECT_ROOT = find_project_root()
 ENV_FILE = PROJECT_ROOT / ".env"
 AUTH_STATE = PROJECT_ROOT / "auth_state.json"
 SHOTS_DIR = PROJECT_ROOT / "screenshots"
+REPORTS_DIR = PROJECT_ROOT / "qa-reports"
 
 # ── 코디세이 URL / 셀렉터 (memory: codyssey-login-endpoint, codyssey-usr-app) ──
 LOGIN_URL = "https://codyssey.kr/loginForm"

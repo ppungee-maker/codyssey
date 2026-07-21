@@ -64,3 +64,22 @@ class QAMonitor:
         lines.append(f"  {'(참고) 네비게이션 취소':22}: {len(self.aborted)} 건  ← 페이지 전환 중 취소, 정상")
         lines.append("=" * 58)
         return "\n".join(lines)
+
+    def summary(self) -> dict:
+        """JSON 직렬화용 신호 요약 (중복 집계 포함)."""
+        console_counts = Counter(m.splitlines()[0][:200] for m in self.console_messages)
+        http_counts = Counter(
+            (status, method, url.split("?")[0]) for status, method, url in self.http_failures
+        )
+        return {
+            "console_total": len(self.console_messages),
+            "console_unique": [
+                {"message": text, "count": cnt} for text, cnt in console_counts.most_common()
+            ],
+            "http_failures_total": len(self.http_failures),
+            "http_failures": [
+                {"status": s, "method": m, "url": u, "count": c}
+                for (s, m, u), c in http_counts.most_common()
+            ],
+            "navigation_aborted": len(self.aborted),
+        }

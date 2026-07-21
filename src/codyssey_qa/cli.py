@@ -9,6 +9,9 @@
 from __future__ import annotations
 
 import argparse
+import json
+from dataclasses import asdict
+from datetime import datetime
 
 from playwright.sync_api import sync_playwright
 
@@ -95,9 +98,35 @@ def cmd_map(settings: config.Settings, headed: bool) -> int:
             title="누적 신호",
             checks={"순회 노드 수": str(len(nodes)), "미션 모달 정상": f"{opened_cnt}/{len(nodes)}"},
         ))
+
+        # ── JSON 리포트 저장 ──
+        report_path = _save_map_report(url, nodes, opened_cnt, monitor)
+        print(f"\n[✓] JSON 리포트 저장: {report_path}")
+
         page.wait_for_timeout(1500)
         browser.close()
         return 0
+
+
+def _save_map_report(map_url, nodes, opened_cnt, monitor) -> str:
+    """노드별 결과 + 누적 QA 신호를 타임스탬프 JSON 으로 저장하고 경로를 반환."""
+    config.REPORTS_DIR.mkdir(exist_ok=True)
+    ts = datetime.now()
+    report = {
+        "kind": "b1-map-node-traversal",
+        "generated_at": ts.isoformat(timespec="seconds"),
+        "map_url": map_url,
+        "summary": {
+            "nodes_total": len(nodes),
+            "missions_ok": opened_cnt,
+            "missions_locked": len(nodes) - opened_cnt,
+            **monitor.summary(),
+        },
+        "nodes": [asdict(n) for n in nodes],
+    }
+    path = config.REPORTS_DIR / f"map-qa-{ts:%Y%m%d-%H%M%S}.json"
+    path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    return str(path.relative_to(config.PROJECT_ROOT))
 
 
 def build_parser() -> argparse.ArgumentParser:
