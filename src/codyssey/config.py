@@ -24,6 +24,7 @@ ENV_FILE = PROJECT_ROOT / ".env"
 AUTH_STATE = PROJECT_ROOT / "auth_state.json"
 SHOTS_DIR = PROJECT_ROOT / "screenshots"
 REPORTS_DIR = PROJECT_ROOT / "qa-reports"
+MEDIA_DIR = PROJECT_ROOT / "media"  # naeto 이미지/TTS/영상 생성물 기본 저장 위치
 
 # ── 코디세이 URL / 셀렉터 (memory: codyssey-login-endpoint, codyssey-usr-app) ──
 LOGIN_URL = "https://codyssey.kr/loginForm"
@@ -43,6 +44,7 @@ class Settings:
     user_id: str | None
     password: str | None
     login_url: str = LOGIN_URL
+    mbr_id: str | None = None
 
     @property
     def has_credentials(self) -> bool:
@@ -69,11 +71,12 @@ def _parse_env_file(path: Path) -> dict[str, str]:
 def load_settings() -> Settings:
     """`.env` 파일 → 실제 환경변수 순으로 병합해 Settings 를 만든다 (환경변수 우선)."""
     env = _parse_env_file(ENV_FILE)
-    for key in ("CODYSSEY_ID", "CODYSSEY_PW", "CODYSSEY_LOGIN_URL"):
+    for key in ("CODYSSEY_ID", "CODYSSEY_PW", "CODYSSEY_LOGIN_URL", "CODYSSEY_MBR_ID"):
         if os.environ.get(key):
             env[key] = os.environ[key]
     return Settings(
         user_id=env.get("CODYSSEY_ID"),
         password=env.get("CODYSSEY_PW"),
         login_url=env.get("CODYSSEY_LOGIN_URL", LOGIN_URL),
+        mbr_id=env.get("CODYSSEY_MBR_ID"),
     )

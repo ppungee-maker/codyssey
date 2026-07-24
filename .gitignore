@@ -18,6 +18,7 @@ qa-reports/
 screenshots/
 traces/
 videos/
+media/
 
 # 로컬 비밀정보
 .env

@@ -1,9 +1,13 @@
-"""명령줄 인터페이스: login / check / b1-3.
+"""명령줄 인터페이스: login / check / b1-3 / map / mission / naeto / precheck.
 
 사용:
-  codyssey login     # 로그인 후 세션 저장 (필요할 때만)
-  codyssey check     # 저장된 세션이 유효한지 확인
-  codyssey b1-3      # 세션 재사용 → B1-3 학습맵까지 이동 + QA 리포트
+  codyssey login              # 로그인 후 세션 저장 (필요할 때만)
+  codyssey check              # 저장된 세션이 유효한지 확인
+  codyssey b1-3                # 세션 재사용 → B1-3 학습맵까지 이동 + QA 리포트
+  codyssey map                 # B1 학습맵 미션 노드 순회 QA
+  codyssey mission B2-1        # 브라우저 없이 API 직접 호출로 미션 원문 읽기
+  codyssey naeto chat "..."    # 네이토 챗 (AI 프록시, virtualTokens 과금)
+  codyssey precheck B1-3 <repo_url>   # 세이AI 미션 사전평가
 """
 
 from __future__ import annotations
@@ -15,7 +19,7 @@ from datetime import datetime
 
 from playwright.sync_api import sync_playwright
 
-from . import api, auth, config, flows
+from . import api, auth, config, flows, naeto, precheck
 from .browser import launch_context
 from .qa import QAMonitor
 
@@ -106,6 +110,147 @@ def _save_mission_text(ref: "api.MissionRef", text: str | None) -> str:
     ]
     path.write_text("\n".join(body), encoding="utf-8")
     return str(path.relative_to(config.PROJECT_ROOT))
+
+
+# ── naeto / precheck (브라우저 없이 API 직접 호출, api.py mission 과 동일 패턴) ──
+
+def _handle_ai_errors(fn):
+    """naeto/precheck 커맨드 공통 에러 처리: 세션만료·쿼터소진을 표준 메시지로."""
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except api.SessionExpired:
+            print("[✗] 세션 만료 — codyssey login 먼저 실행하세요")
+            return 1
+        except naeto.QuotaExceeded as exc:
+            print(f"[✗] {exc}")
+            return 1
+    return wrapper
+
+
+@_handle_ai_errors
+def cmd_precheck(settings: config.Settings, headed: bool, label: str, repo_url: str, branch: str) -> int:
+    try:
+        result = precheck.run_precheck(label, repo_url, branch)
+    except (ValueError, precheck.PrecheckError) as exc:
+        print(f"[✗] {exc}")
+        return 1
+
+    icon = "✓" if result.passed else ("✗" if result.passed is False else "?")
+    print(f"[{icon}] {label} — {result.score_text or '(점수 불명)'}")
+    if result.summary:
+        print(result.summary)
+    for c in result.criteria:
+        mark = "✅" if c.verdict.strip().lower() in ("pass", "true", "합격") else "❌"
+        print(f"  {mark} {c.criterion}: {c.verdict} — {c.reason}")
+    return 0 if result.passed else 1
+
+
+@_handle_ai_errors
+def cmd_received_evals(settings: config.Settings, headed: bool) -> int:
+    evals = precheck.received_evals()
+    if not evals:
+        print("[*] 받은 평가 없음")
+        return 0
+    for e in evals:
+        print(f"[{e.result}] {e.evaluator} — 점수 {e.score if e.score is not None else '?'}")
+        if e.feedback:
+            print(f"    {e.feedback}")
+    return 0
+
+
+@_handle_ai_errors
+def cmd_naeto_models(settings: config.Settings, headed: bool) -> int:
+    for m in naeto.list_models():
+        print(m)
+    return 0
+
+
+@_handle_ai_errors
+def cmd_naeto_presets(settings: config.Settings, headed: bool) -> int:
+    for p in naeto.list_presets():
+        print(p)
+    return 0
+
+
+@_handle_ai_errors
+def cmd_naeto_sessions(settings: config.Settings, headed: bool) -> int:
+    for s in naeto.list_sessions():
+        print(s)
+    return 0
+
+
+@_handle_ai_errors
+def cmd_naeto_history(settings: config.Settings, headed: bool, session_id: str) -> int:
+    for turn in naeto.get_history(session_id):
+        print(turn)
+    return 0
+
+
+@_handle_ai_errors
+def cmd_naeto_logs(settings: config.Settings, headed: bool) -> int:
+    for log in naeto.media_logs():
+        print(log)
+    return 0
+
+
+def _history_to_messages(session_id: str) -> list[dict]:
+    """이전 세션 대화를 chat() 이 요구하는 messages 형식으로 최선 변환.
+    ⚠ history 응답의 정확한 필드명이 문서에 없어 role/content 가정 — 안 맞으면 빈 이력으로 대체."""
+    try:
+        turns = naeto.get_history(session_id)
+        return [{"role": t["role"], "content": t["content"]} for t in turns]
+    except (KeyError, TypeError):
+        print("[!] 세션 이력 형식을 해석하지 못해 새 대화로 진행합니다 (필드명 확인 필요)")
+        return []
+
+
+@_handle_ai_errors
+def cmd_naeto_chat(
+    settings: config.Settings, headed: bool, message: str,
+    session_id: str | None, model: str, preset: str | None, system_prompt: str | None,
+) -> int:
+    messages = _history_to_messages(session_id) if session_id else []
+    messages.append({"role": "user", "content": message})
+
+    result = naeto.chat(
+        messages, session_id=session_id, model_cd=model,
+        system_prompt=system_prompt, preset_cd=preset,
+    )
+    print(result.answer)
+    print(f"\n[* session={result.session_id} vt={result.virtual_tokens}]")
+    return 0
+
+
+@_handle_ai_errors
+def cmd_naeto_image(settings: config.Settings, headed: bool, prompt: str, model: str, size: str, quality: str) -> int:
+    result = naeto.image_gen(prompt, model=model, size=size, quality=quality)
+    for p in result.local_paths:
+        print(f"[✓] 저장: {p}")
+    print(f"[* vt={result.virtual_tokens}]")
+    return 0
+
+
+@_handle_ai_errors
+def cmd_naeto_tts(settings: config.Settings, headed: bool, text: str, model: str, voice: str) -> int:
+    result = naeto.tts_gen(text, model=model, voice=voice)
+    print(f"[✓] 저장: {result.local_path}")
+    print(f"[* vt={result.virtual_tokens}]")
+    return 0
+
+
+@_handle_ai_errors
+def cmd_naeto_video(
+    settings: config.Settings, headed: bool, prompt: str, model: str,
+    resolution: str, duration: int, yes: bool,
+) -> int:
+    if not yes:
+        print("[!] 비디오 생성은 유료(veo) 호출 중 가장 비쌉니다 — 비용을 확인했다면 --yes 를 추가하세요")
+        return 1
+    result = naeto.video_gen(prompt, model=model, resolution=resolution, duration_seconds=duration)
+    print(f"[✓] 저장: {result.local_path}")
+    print(f"[* vt={result.virtual_tokens}]")
+    return 0
 
 
 def cmd_map(settings: config.Settings, headed: bool) -> int:
@@ -237,7 +382,58 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("map", help="B1 학습맵 미션 노드 순회 QA")
     mission_p = sub.add_parser("mission", help="학습맵의 특정 노드(예: B2-1) 미션 원문을 읽어옴")
     mission_p.add_argument("label", help="노드 라벨 (예: B2-1)")
+
+    precheck_p = sub.add_parser("precheck", help="세이AI로 미션 repo 사전평가")
+    precheck_p.add_argument("label", help="미션 노드 라벨 (예: B1-3)")
+    precheck_p.add_argument("repo_url", help="채점 대상 공개 HTTPS repo URL")
+    precheck_p.add_argument("--branch", default="main")
+
+    sub.add_parser("received-evals", help="내 제출물이 받은 동료/교수 평가 조회")
+
+    naeto_p = sub.add_parser("naeto", help="네이토 AI 챗/생성 (virtualTokens 과금)")
+    naeto_sub = naeto_p.add_subparsers(dest="naeto_command", required=True)
+    naeto_sub.add_parser("models", help="사용 가능한 모델 목록")
+    naeto_sub.add_parser("presets", help="프리셋(페르소나) 목록")
+    naeto_sub.add_parser("sessions", help="저장된 챗 세션 목록")
+    naeto_sub.add_parser("logs", help="미디어 생성 로그(과금 감사, video 폴링 결과)")
+    history_p = naeto_sub.add_parser("history", help="세션 대화 이력 조회")
+    history_p.add_argument("session_id")
+    chat_p = naeto_sub.add_parser("chat", help="챗 (기본, virtualTokens 과금)")
+    chat_p.add_argument("message")
+    chat_p.add_argument("-s", "--session-id", default=None, help="이어갈 세션 id")
+    chat_p.add_argument("-m", "--model", default=naeto.DEFAULT_CHAT_MODEL)
+    chat_p.add_argument("--preset", default="tutor", help="presetCd — 서버가 필수로 요구함 (기본 tutor)")
+    chat_p.add_argument("--system-prompt", default=None)
+    image_p = naeto_sub.add_parser("image", help="이미지 생성 (virtualTokens 과금)")
+    image_p.add_argument("prompt")
+    image_p.add_argument("--model", default=naeto.DEFAULT_IMAGE_MODEL)
+    image_p.add_argument("--size", default="1024x1024")
+    image_p.add_argument("--quality", default="low")
+    tts_p = naeto_sub.add_parser("tts", help="음성 합성 (virtualTokens 과금)")
+    tts_p.add_argument("text")
+    tts_p.add_argument("--model", default=naeto.DEFAULT_TTS_MODEL)
+    tts_p.add_argument("--voice", default=naeto.DEFAULT_TTS_VOICE)
+    video_p = naeto_sub.add_parser("video", help="영상 생성 (virtualTokens 과금, 가장 비쌈)")
+    video_p.add_argument("prompt")
+    video_p.add_argument("--model", default=naeto.DEFAULT_VIDEO_MODEL)
+    video_p.add_argument("--resolution", default="720p")
+    video_p.add_argument("--duration", type=int, default=4)
+    video_p.add_argument("--yes", action="store_true", help="비용을 확인했고 진행에 동의함")
+
     return parser
+
+
+NAETO_HANDLERS = {
+    "models": lambda s, h, a: cmd_naeto_models(s, h),
+    "presets": lambda s, h, a: cmd_naeto_presets(s, h),
+    "sessions": lambda s, h, a: cmd_naeto_sessions(s, h),
+    "logs": lambda s, h, a: cmd_naeto_logs(s, h),
+    "history": lambda s, h, a: cmd_naeto_history(s, h, a.session_id),
+    "chat": lambda s, h, a: cmd_naeto_chat(s, h, a.message, a.session_id, a.model, a.preset, a.system_prompt),
+    "image": lambda s, h, a: cmd_naeto_image(s, h, a.prompt, a.model, a.size, a.quality),
+    "tts": lambda s, h, a: cmd_naeto_tts(s, h, a.text, a.model, a.voice),
+    "video": lambda s, h, a: cmd_naeto_video(s, h, a.prompt, a.model, a.resolution, a.duration, a.yes),
+}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -246,6 +442,12 @@ def main(argv: list[str] | None = None) -> int:
     headed = not args.headless
     if args.command == "mission":
         return cmd_mission(settings, headed, args.label)
+    if args.command == "precheck":
+        return cmd_precheck(settings, headed, args.label, args.repo_url, args.branch)
+    if args.command == "received-evals":
+        return cmd_received_evals(settings, headed)
+    if args.command == "naeto":
+        return NAETO_HANDLERS[args.naeto_command](settings, headed, args)
     handlers = {"login": cmd_login, "check": cmd_check, "b1-3": cmd_b1_3, "map": cmd_map}
     return handlers[args.command](settings, headed)
 

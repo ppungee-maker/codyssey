@@ -31,6 +31,11 @@ codyssey check     # 저장된 세션이 유효한지 확인
 codyssey b1-3      # 세션 재사용 → B1-3(노코드자동화) 학습맵까지 이동 + QA 리포트
 codyssey map       # B1 학습맵 미션 노드(B1-1~B2-3) 순회 QA + JSON 리포트 저장
 codyssey mission B2-1   # 브라우저 없이 API 직접 호출로 미션 원문(문제기술)만 빠르게 읽기
+codyssey precheck B1-3 <repo_url>   # 세이AI로 미션 repo 자동 사전평가 (무료, 반복 호출 안전)
+codyssey received-evals              # 내 제출물이 받은 동료/교수 평가 조회
+codyssey naeto chat "질문"           # 네이토 AI 챗 (virtualTokens 과금)
+codyssey naeto image "프롬프트"      # 네이토 이미지 생성 (과금)
+codyssey naeto models                # 사용 가능한 모델 목록 (무료)
 
 # 콘솔 스크립트 대신 모듈로도 실행 가능
 python -m codyssey b1-3
@@ -61,6 +66,10 @@ codyssey check
 | `b1-3` | 메인 → B1-3 학습맵까지 이동 + QA 리포트 | `screenshots/b1-3-노코드자동화.png` |
 | `map` | B1 학습맵 미션 노드(B1-1~B2-3) 순회 QA | `screenshots/node-*.png`, `qa-reports/map-qa-*.json`·`.md` |
 | `mission <label>` | 브라우저 없이 API로 미션 원문만 빠르게 읽기 (예: `mission B2-1`) | `qa-reports/mission-<label>-*.md` |
+| `precheck <label> <repo_url>` | 세이AI로 미션 repo 사전평가 (무료, 결과는 회차마다 조금씩 다를 수 있음) | (콘솔 출력) |
+| `received-evals` | 내 제출물이 받은 동료/교수 평가 조회 | (콘솔 출력) |
+| `naeto {models|presets|sessions|history|logs}` | 네이토 조회류 (무료) | (콘솔 출력) |
+| `naeto {chat|image|tts|video}` | 네이토 생성류 (**virtualTokens 과금**, video는 `--yes` 필수) | `media/` |
 
 ## 구조
 
@@ -71,8 +80,10 @@ src/codyssey/
   auth.py      로그인 / 세션 검증 / 자동 재로그인
   qa.py        QAMonitor — 콘솔·HTTP 신호 수집 + 리포트
   flows.py     학습 콘텐츠 이동 플로우 (navigate_to_b1_3, traverse_map_nodes)
-  api.py       api.usr.codyssey.kr 직접 호출 (브라우저 없이 미션 원문 읽기, list_missions/fetch_mission)
-  cli.py       login / check / b1-3 / map / mission 서브커맨드
+  api.py       api.usr.codyssey.kr 직접 호출 공용 배관 (쿠키 인증, list_missions/fetch_mission, get_member_id)
+  naeto.py     네이토 AI 챗/이미지/TTS/영상 생성 (chat/image_gen/tts_gen/video_gen)
+  precheck.py  세이AI 미션 사전평가 (run_precheck, received_evals)
+  cli.py       login / check / b1-3 / map / mission / precheck / received-evals / naeto 서브커맨드
 ```
 
 ## 산출물
@@ -80,6 +91,7 @@ src/codyssey/
 - `screenshots/`  — 이동/노드별 화면 캡처 (`node-B1-1.png` 등)
 - `qa-reports/`   — `map` 실행 시 노드별 결과 + 누적 QA 신호를 담은 타임스탬프 리포트.
   같은 이름으로 **JSON**(`map-qa-*.json`, 기계용)과 **Markdown**(`map-qa-*.md`, 사람용) 동시 생성
+- `media/`        — `naeto image/tts/video` 생성물 (이미지·오디오·영상 파일)
 
 둘 다 `.gitignore` 처리되어 커밋되지 않는다 (로컬 QA 산출물).
 
@@ -91,3 +103,7 @@ src/codyssey/
 - 네트워크 실패 중 `net::ERR_ABORTED` 는 페이지 전환 시 취소된 정상 요청 → 실제 실패와 분리.
 - 콘텐츠를 "읽기"만 하면 되는 경우 DOM 순회보다 직접 API 호출이 빠르고 안정적이다
   (`mission` 명령이 그 예). 발굴한 엔드포인트는 [`docs/api-endpoints.md`](docs/api-endpoints.md) 참고.
+- 네이토(`naeto`)·세이AI(`precheck`)는 codyssey.kr 자체가 아니라 학교 LLM 프록시 — API 키 없이
+  로그인 세션 쿠키로만 인증한다. 사용법 전체는 [`docs/naeto-seai-usage.md`](docs/naeto-seai-usage.md) 참고.
+  `naeto`의 챗/이미지/TTS/영상 생성은 **virtualTokens(vt) 과금**이 걸린다(쿼터 소진 시 402) —
+  `models`/`presets`/`sessions`/`history`/`logs`만 무료.
