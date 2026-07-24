@@ -1,4 +1,4 @@
-# codyssey-qa
+# codyssey
 
 코디세이(codyssey.kr) 사이트 QA 자동화 — Playwright(Python).
 로그인 세션을 재사용하며 **항상 headed 모드**로 학습 콘텐츠를 순회하고,
@@ -26,30 +26,30 @@ CODYSSEY_PW=<비밀번호>
 ## 사용
 
 ```bash
-codyssey-qa login     # 로그인 후 세션 저장 (auth_state.json)
-codyssey-qa check     # 저장된 세션이 유효한지 확인
-codyssey-qa b1-3      # 세션 재사용 → B1-3(노코드자동화) 학습맵까지 이동 + QA 리포트
-codyssey-qa map       # B1 학습맵 미션 노드(B1-1~B2-3) 순회 QA + JSON 리포트 저장
-codyssey-qa mission B2-1   # 브라우저 없이 API 직접 호출로 미션 원문(문제기술)만 빠르게 읽기
+codyssey login     # 로그인 후 세션 저장 (auth_state.json)
+codyssey check     # 저장된 세션이 유효한지 확인
+codyssey b1-3      # 세션 재사용 → B1-3(노코드자동화) 학습맵까지 이동 + QA 리포트
+codyssey map       # B1 학습맵 미션 노드(B1-1~B2-3) 순회 QA + JSON 리포트 저장
+codyssey mission B2-1   # 브라우저 없이 API 직접 호출로 미션 원문(문제기술)만 빠르게 읽기
 
 # 콘솔 스크립트 대신 모듈로도 실행 가능
-python -m codyssey_qa b1-3
+python -m codyssey b1-3
 # headless 로 돌리려면
-codyssey-qa --headless check
+codyssey --headless check
 ```
 
 ### 전형적 QA 흐름
 
 ```bash
 # 1) 최초 1회만 로그인 → 세션(auth_state.json) 저장
-codyssey-qa login
+codyssey login
 
 # 2) 이후에는 세션을 재사용하므로 로그인 없이 바로 QA 실행
-codyssey-qa map        # B1 학습맵 노드 순회 → qa-reports/ 에 JSON+MD 리포트
+codyssey map        # B1 학습맵 노드 순회 → qa-reports/ 에 JSON+MD 리포트
 
 # 3) 세션이 만료되면 map/b1-3 실행 시 자동으로 재로그인한다.
 #    수동 확인이 필요하면:
-codyssey-qa check
+codyssey check
 ```
 
 각 명령이 하는 일:
@@ -65,7 +65,7 @@ codyssey-qa check
 ## 구조
 
 ```
-src/codyssey_qa/
+src/codyssey/
   config.py    설정·경로·URL·자격증명 로딩
   browser.py   headed 컨텍스트 + 세션(storage_state) 재사용
   auth.py      로그인 / 세션 검증 / 자동 재로그인

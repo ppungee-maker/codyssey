@@ -33,6 +33,10 @@ USR_MAIN = "https://usr.codyssey.kr/main/"   # → 캠퍼스별 /{campus}/main/ 
 # B1-3 = 노코드자동화 코스. 메인 카드 텍스트 클릭 → learningMap 진입.
 B1_3_CARD_TEXT = "노코드 자동화 기초"
 
+# 학습 콘텐츠 API (브라우저 없이 미션 원문을 직접 읽어올 때 사용, api.py 참고)
+LEARNING_API_BASE = "https://api.usr.codyssey.kr"
+DEFAULT_LP_NO = 143003  # "AI 도구 학습 (AI Native Basic)" 프로젝트 번호
+
 
 @dataclass(frozen=True)
 class Settings:

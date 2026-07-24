@@ -85,6 +85,25 @@ def _close_mission_modal(page: Page) -> None:
         page.wait_for_timeout(800)
 
 
+def open_mission_node(page: Page, label: str) -> bool:
+    """학습맵에서 label(예: "B2-1") 노드를 클릭해 미션 모달을 연다.
+
+    직전에 열려 있던 모달은 먼저 닫는다. 반환: 모달이 실제로 열렸는지 여부
+    (잠긴 노드는 클릭해도 모달이 뜨지 않는 것으로 관찰됨).
+    """
+    _close_mission_modal(page)
+    loc = page.get_by_text(label, exact=True).first
+    box = loc.bounding_box() if loc.count() else None
+    if not box:
+        return False
+
+    page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+    page.wait_for_timeout(2200)
+
+    close = page.locator(MISSION_MODAL_CLOSE)
+    return bool(close.count()) and close.first.is_visible()
+
+
 def traverse_map_nodes(page: Page, monitor) -> list[NodeResult]:
     """학습맵의 모든 미션 노드를 순회하며 클릭→모달 확인→캡처→닫기.
 
@@ -97,21 +116,8 @@ def traverse_map_nodes(page: Page, monitor) -> list[NodeResult]:
 
     results: list[NodeResult] = []
     for label in labels:
-        _close_mission_modal(page)  # 이전 모달 잔존 방지
-
         c0, h0 = len(monitor.console_messages), len(monitor.http_failures)
-        loc = page.get_by_text(label, exact=True).first
-        box = loc.bounding_box() if loc.count() else None
-        if not box:
-            print(f"  [{label}] 노드 좌표 없음 — 스킵")
-            results.append(NodeResult(label, False, None, 0, 0, None))
-            continue
-
-        page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-        page.wait_for_timeout(2200)
-
-        close = page.locator(MISSION_MODAL_CLOSE)
-        opened = bool(close.count()) and close.first.is_visible()
+        opened = open_mission_node(page, label)
         title = _mission_title(page) if opened else None
 
         shot = None

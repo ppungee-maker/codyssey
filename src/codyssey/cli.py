@@ -1,9 +1,9 @@
 """명령줄 인터페이스: login / check / b1-3.
 
 사용:
-  codyssey-qa login     # 로그인 후 세션 저장 (필요할 때만)
-  codyssey-qa check     # 저장된 세션이 유효한지 확인
-  codyssey-qa b1-3      # 세션 재사용 → B1-3 학습맵까지 이동 + QA 리포트
+  codyssey login     # 로그인 후 세션 저장 (필요할 때만)
+  codyssey check     # 저장된 세션이 유효한지 확인
+  codyssey b1-3      # 세션 재사용 → B1-3 학습맵까지 이동 + QA 리포트
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from datetime import datetime
 
 from playwright.sync_api import sync_playwright
 
-from . import auth, config, flows
+from . import api, auth, config, flows
 from .browser import launch_context
 from .qa import QAMonitor
 
@@ -36,7 +36,7 @@ def cmd_check(settings: config.Settings, headed: bool) -> int:
         page = ctx.new_page()
         logged_in = auth.is_logged_in(page)
         print("[✓] 저장된 세션 유효 — 로그인 상태" if logged_in
-              else "[✗] 세션 없음/만료 — codyssey-qa login 필요")
+              else "[✗] 세션 없음/만료 — codyssey login 필요")
         page.wait_for_timeout(2000)
         browser.close()
         return 0 if logged_in else 1
@@ -63,6 +63,49 @@ def cmd_b1_3(settings: config.Settings, headed: bool) -> int:
         page.wait_for_timeout(1500)
         browser.close()
         return 0 if reached else 1
+
+
+def cmd_mission(settings: config.Settings, headed: bool, label: str) -> int:
+    """브라우저 없이 API 직접 호출로 미션 원문을 읽어온다 (api.py 참고, 빠름)."""
+    try:
+        ref, text = api.fetch_mission(label)
+    except api.SessionExpired:
+        print("[✗] 세션 만료 — codyssey login 먼저 실행하세요")
+        return 1
+
+    if ref is None:
+        print(f"[✗] [{label}] 노드를 찾지 못함 (라벨 오타 가능성 — 예: B2-1)")
+        return 1
+
+    print(f"[✓] [{label}] {ref.title}")
+    print("\n----- 미션 원문 -----")
+    print(text)
+    print("---------------------\n")
+
+    md_path = _save_mission_text(ref, text)
+    print(f"[✓] 저장: {md_path}")
+    return 0
+
+
+def _save_mission_text(ref: "api.MissionRef", text: str | None) -> str:
+    """읽어온 미션 원문을 qa-reports/mission-<label>-<timestamp>.md 로 저장하고 상대경로를 반환."""
+    config.REPORTS_DIR.mkdir(exist_ok=True)
+    ts = datetime.now()
+    path = config.REPORTS_DIR / f"mission-{ref.label}-{ts:%Y%m%d-%H%M%S}.md"
+    body = [
+        f"# 미션 {ref.label} 원문",
+        "",
+        f"- 생성: `{ts.isoformat(timespec='seconds')}`",
+        f"- 미션명: {ref.title}",
+        f"- 식별자: projectNo={ref.project_no} lcorsNo={ref.lcors_no} uqstnNo={ref.uqstn_no}",
+        "",
+        "## 본문",
+        "",
+        text or "(내용 없음)",
+        "",
+    ]
+    path.write_text("\n".join(body), encoding="utf-8")
+    return str(path.relative_to(config.PROJECT_ROOT))
 
 
 def cmd_map(settings: config.Settings, headed: bool) -> int:
@@ -184,7 +227,7 @@ def _save_map_report(map_url, nodes, opened_cnt, monitor) -> tuple[str, str]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="codyssey-qa", description="코디세이 사이트 QA 자동화")
+    parser = argparse.ArgumentParser(prog="codyssey", description="코디세이 사이트 QA 자동화")
     parser.add_argument("--headless", action="store_true",
                         help="headless 로 실행 (기본은 headed — 항상 눈으로 보기)")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -192,6 +235,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("check", help="저장된 세션 유효성 확인")
     sub.add_parser("b1-3", help="B1-3 학습맵까지 이동 + QA 리포트")
     sub.add_parser("map", help="B1 학습맵 미션 노드 순회 QA")
+    mission_p = sub.add_parser("mission", help="학습맵의 특정 노드(예: B2-1) 미션 원문을 읽어옴")
+    mission_p.add_argument("label", help="노드 라벨 (예: B2-1)")
     return parser
 
 
@@ -199,6 +244,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     settings = config.load_settings()
     headed = not args.headless
+    if args.command == "mission":
+        return cmd_mission(settings, headed, args.label)
     handlers = {"login": cmd_login, "check": cmd_check, "b1-3": cmd_b1_3, "map": cmd_map}
     return handlers[args.command](settings, headed)
 

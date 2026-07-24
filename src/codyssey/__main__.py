@@ -1,4 +1,4 @@
-"""`python -m codyssey_qa` 진입점."""
+"""`python -m codyssey` 진입점."""
 
 from .cli import main
 
