@@ -101,6 +101,8 @@ src/codyssey/
   → `domcontentloaded` + 고정 대기 사용.
 - 인증의 핵심은 `JSESSIONID` 쿠키(`.codyssey.kr`, 서브도메인 공유). `storage_state` 로 통째로 재사용.
 - 네트워크 실패 중 `net::ERR_ABORTED` 는 페이지 전환 시 취소된 정상 요청 → 실제 실패와 분리.
+- 로그인 직후 localStorage `isLoggedIn`이 잠깐 `false`였다가 앱 순회 후 `true`로 바뀐다.
+  세션 저장(`storage_state`)은 usr 리다이렉트가 정착된 뒤에 할 것.
 - 콘텐츠를 "읽기"만 하면 되는 경우 DOM 순회보다 직접 API 호출이 빠르고 안정적이다
   (`mission` 명령이 그 예). 발굴한 엔드포인트는 [`docs/api-endpoints.md`](docs/api-endpoints.md) 참고.
 - 네이토(`naeto`)·세이AI(`precheck`)는 codyssey.kr 자체가 아니라 학교 LLM 프록시 — API 키 없이
