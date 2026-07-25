@@ -85,6 +85,24 @@ def get_member_id() -> str:
     return _member_id_cache
 
 
+def session_valid() -> bool:
+    """저장된 세션(JSESSIONID)이 아직 유효한지 httpx 로 값싸게 확인 — 브라우저 불필요.
+
+    인증이 필요한 /rest/user/info/detail 을 때려본다. 세션이 만료되면 서버는 로그인
+    host 로 302 리다이렉트를 보내는데, _client 는 follow_redirects=False(httpx 기본)라
+    302/401 이 status 로 곧장 드러난다. 브라우저로 usr 메인을 열어 URL 에 'login' 문자열이
+    없으면 로그인으로 보던 방식은 SPA 가 어떤 경로든 200 셸을 반환해 미인증도 오판했다.
+    """
+    if not config.AUTH_STATE.exists():
+        return False
+    try:
+        with _client() as client:
+            r = client.get("/rest/user/info/detail")
+    except (httpx.HTTPError, SessionExpired):
+        return False
+    return r.status_code == 200
+
+
 def list_missions(lp_no: int = config.DEFAULT_LP_NO) -> tuple[dict[str, MissionRef], str]:
     """학습맵의 미션 노드(label → 식별자) 전체 + 내 팀 번호(teamSn)를 가져온다."""
     with _client() as client:
