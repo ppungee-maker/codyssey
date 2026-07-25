@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Page
 
-from . import config
+from . import api, config
 
 
 def login(page: Page, settings: config.Settings) -> bool:
@@ -41,24 +41,29 @@ def login(page: Page, settings: config.Settings) -> bool:
         print("[✗] 로그인 실패 — 아이디/비번 확인 필요")
         return False
 
-    # 로그인 성공 시 usr.codyssey.kr 로 자동 리다이렉트. 정착까지 대기.
+    # 로그인 성공 시 usr.codyssey.kr 로 자동 리다이렉트. 정착까지 조건 대기.
     # ⚠️ SSE 상시연결 때문에 networkidle 은 절대 쓰지 않는다 (무한 대기).
+    # wait_for_url 이 리다이렉트 정착을 보장하므로 고정 슬립(wait_for_timeout)은 불필요 —
+    # 느리고 불안정(flaky)해서 조건 대기로 대체했다.
     try:
         page.wait_for_url("**usr.codyssey.kr/**", timeout=10000)
-    except Exception:
-        pass
-    page.wait_for_timeout(2500)
+    except Exception as exc:  # noqa: BLE001 - 대기 실패해도 success 판정은 통과, 진단만 남긴다
+        print(f"[!] usr 리다이렉트 대기 실패({exc}) — 세션 저장은 계속 진행")
     page.context.storage_state(path=str(config.AUTH_STATE))
     print(f"[✓] 로그인 성공 — 착지: {page.url}")
     print(f"[✓] 세션 저장: {config.AUTH_STATE.name}")
     return True
 
 
-def is_logged_in(page: Page) -> bool:
-    """usr 학습앱 메인 접근 시 로그인 폼으로 튕기지 않으면 로그인 상태로 본다."""
-    page.goto(config.USR_MAIN, wait_until="domcontentloaded")
-    page.wait_for_timeout(2500)
-    return "login" not in page.url.lower()
+def is_logged_in(_page: Page | None = None) -> bool:
+    """세션(auth_state.json)이 유효한지 httpx 로 검증 — 브라우저 네비게이션 불필요.
+
+    이전엔 usr 메인으로 이동해 URL 에 'login' 문자열이 없으면 로그인으로 봤지만, SPA 는
+    어떤 경로든 200 셸을 반환해 미인증도 로그인으로 오판할 수 있었다. 실제 인증이 필요한
+    XHR(user/info/detail)을 httpx 로 때려 302/401 여부로 판정한다(api.session_valid).
+    _page 인자는 기존 호출부(page 전달) 하위호환용으로 남기며 쓰지 않는다.
+    """
+    return api.session_valid()
 
 
 def ensure_logged_in(page: Page, settings: config.Settings) -> bool:
