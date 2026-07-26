@@ -11,6 +11,10 @@ requires-python = ">=3.11"
 dependencies = [
     "playwright==1.61.0",
     "httpx",
+    # PDF → 네이토 첨부 변환(naeto_pdf.py). 서버가 type:"pdf" 를 모델에 전달하지 않아
+    # 클라가 텍스트 추출(기본) + 페이지 렌더(폴백) 둘 다 해야 한다 — 그 둘을 한 패키지로
+    # 커버하는 게 PyMuPDF 뿐이다(pypdf 는 렌더 불가).
+    "pymupdf>=1.28",
 ]
 
 [project.scripts]

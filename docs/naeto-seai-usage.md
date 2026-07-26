@@ -6,6 +6,20 @@
 > - 구현은 `src/codyssey/naeto.py`, `src/codyssey/precheck.py`. 엔드포인트 표는
 >   [`docs/api-endpoints.md`](api-endpoints.md)에도 정리되어 있다(이 문서는 사용법 위주,
 >   그쪽은 엔드포인트 단일 출처).
+> - **첨부(`--image`/`--pdf`)는 `naeto chat` 서브커맨드에 붙는다**:
+>   `codyssey naeto chat "이 문서 요약" --pdf spec.pdf`. 변환 산출물은 `media/pdf/` (gitignore).
+>   원문의 `--code-out`·`--output-format`·`agent`·`presets` 서브커맨드는 아직 이 리포에 없다.
+>
+> **첨부 계약 (2026-07-25 실측, 모델 4종 교차) — 조용한 실패 2종이 있다**
+> | 상황 | 서버 거동 | 이 리포 대응 |
+> |---|---|---|
+> | 첨부 1건 > **1 MiB** | 4xx·SSE error **없이 버림**. inputTokens 도 안 늘고 모델은 "첨부 없음" 이라 답함 | `naeto.ATTACH_MAX_BYTES` 로 **보낼 바이트를 재서** 즉시 실패 |
+> | `type:"pdf"` | 프론트 분기엔 있는데 **모델에 도달하지 않음** | `_attachment` 가 거부 + `naeto_pdf` 변환 안내 |
+>
+> 둘 다 **에러가 안 나서** 증상이 "AI 가 답을 못 함" 으로만 보인다 — 오답을 정답처럼 받는 실패라
+> 클라가 먼저 막는다. `image`·`text` 첨부는 정상 전달된다(텍스트는 프롬프트에 인라인).
+> `--pdf` 는 텍스트 추출이 기본이고 스캔·CID깨짐 페이지만 PNG 로 렌더한다(`--pdf-render` 로 강제,
+> `--pdf-pages 1-3,7` 로 부분 지정, `--pdf-dpi` 로 DPI 고정).
 
 ---
 
