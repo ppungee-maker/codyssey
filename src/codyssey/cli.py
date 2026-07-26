@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import asdict
 from datetime import datetime
 
@@ -205,17 +206,39 @@ def _history_to_messages(session_id: str) -> list[dict]:
         return []
 
 
+def _pdf_paths(args: argparse.Namespace) -> list[str]:
+    """--pdf → 실제로 보낼 첨부 경로 목록. 판정 로그는 stderr(산출물이 stdout 을 오염하면 안 된다).
+
+    변환 자체는 `naeto_pdf.py` 소관 — 여기서는 플래그를 그쪽 인자로 옮기는 일만 한다.
+    임포트를 함수 안에 두는 이유: pymupdf 가 무거워서 --pdf 를 안 쓰는 명령까지 느려진다.
+    """
+    if not args.pdf:
+        return []
+    from .naeto_pdf import iter_attachment_paths
+
+    out: list[str] = []
+    for path, log in iter_attachment_paths(
+        args.pdf, pages=args.pdf_pages, force_render=args.pdf_render, dpi=args.pdf_dpi
+    ):
+        for line in log:
+            print(f"[naeto pdf] {line}", file=sys.stderr)
+        out.append(str(path))
+    return out
+
+
 @_handle_ai_errors
 def cmd_naeto_chat(
     settings: config.Settings, headed: bool, message: str,
     session_id: str | None, model: str, preset: str | None, system_prompt: str | None,
+    args: argparse.Namespace,
 ) -> int:
     messages = _history_to_messages(session_id) if session_id else []
     messages.append({"role": "user", "content": message})
+    attachments = [*(args.image or []), *_pdf_paths(args)] or None
 
     result = naeto.chat(
         messages, session_id=session_id, model_cd=model,
-        system_prompt=system_prompt, preset_cd=preset,
+        system_prompt=system_prompt, preset_cd=preset, attachments=attachments,
     )
     print(result.answer)
     print(f"\n[* session={result.session_id} vt={result.virtual_tokens}]")
@@ -404,6 +427,21 @@ def build_parser() -> argparse.ArgumentParser:
     chat_p.add_argument("-m", "--model", default=naeto.DEFAULT_CHAT_MODEL)
     chat_p.add_argument("--preset", default="tutor", help="presetCd — 서버가 필수로 요구함 (기본 tutor)")
     chat_p.add_argument("--system-prompt", default=None)
+    chat_p.add_argument(
+        "-i", "--image", action="append", metavar="PATH",
+        help="비전 입력 이미지(반복 가능). 1건당 1 MiB 초과분은 서버가 조용히 버려 클라가 막는다",
+    )
+    # PDF 는 서버가 모델에 전달하지 않는다(naeto._attachment 주석) → 클라가 변환해 보낸다:
+    # 텍스트 추출이 기본, 스캔/CID깨짐 페이지만 자동 렌더. 산출물은 media/pdf/ 에 남는다.
+    chat_p.add_argument("--pdf", action="append", metavar="PATH", help="PDF 입력(반복 가능, 자동 변환)")
+    chat_p.add_argument(
+        "--pdf-pages", metavar="SPEC", help="PDF 페이지 지정(1-based, 예: '1-3,7'). 기본 전체"
+    )
+    chat_p.add_argument(
+        "--pdf-render", action="store_true",
+        help="PDF 전 페이지를 이미지로 강제(도면·병합셀 표·도장처럼 레이아웃이 정보일 때)",
+    )
+    chat_p.add_argument("--pdf-dpi", type=int, metavar="N", help="렌더 DPI 고정(기본 150→110→80 사다리)")
     image_p = naeto_sub.add_parser("image", help="이미지 생성 (virtualTokens 과금)")
     image_p.add_argument("prompt")
     image_p.add_argument("--model", default=naeto.DEFAULT_IMAGE_MODEL)
@@ -429,7 +467,7 @@ NAETO_HANDLERS = {
     "sessions": lambda s, h, a: cmd_naeto_sessions(s, h),
     "logs": lambda s, h, a: cmd_naeto_logs(s, h),
     "history": lambda s, h, a: cmd_naeto_history(s, h, a.session_id),
-    "chat": lambda s, h, a: cmd_naeto_chat(s, h, a.message, a.session_id, a.model, a.preset, a.system_prompt),
+    "chat": lambda s, h, a: cmd_naeto_chat(s, h, a.message, a.session_id, a.model, a.preset, a.system_prompt, a),
     "image": lambda s, h, a: cmd_naeto_image(s, h, a.prompt, a.model, a.size, a.quality),
     "tts": lambda s, h, a: cmd_naeto_tts(s, h, a.text, a.model, a.voice),
     "video": lambda s, h, a: cmd_naeto_video(s, h, a.prompt, a.model, a.resolution, a.duration, a.yes),

@@ -25,6 +25,7 @@ AUTH_STATE = PROJECT_ROOT / "auth_state.json"
 SHOTS_DIR = PROJECT_ROOT / "screenshots"
 REPORTS_DIR = PROJECT_ROOT / "qa-reports"
 MEDIA_DIR = PROJECT_ROOT / "media"  # naeto 이미지/TTS/영상 생성물 기본 저장 위치
+PDF_DIR = MEDIA_DIR / "pdf"  # PDF → 첨부 변환 산출물(페이지 텍스트·렌더 PNG). naeto_pdf.py
 
 # ── 코디세이 URL / 셀렉터 (memory: codyssey-login-endpoint, codyssey-usr-app) ──
 LOGIN_URL = "https://codyssey.kr/loginForm"
