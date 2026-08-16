@@ -64,3 +64,22 @@ def daily_trend(rows: list[dict], out_path: Path) -> None:
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
+
+
+_SENTIMENT_COLORS = {"긍정": "#2F9E44", "부정": "#E03131", "중립": "#868E96"}
+
+
+def sentiment_distribution(rows: list[dict], out_path: Path) -> None:
+    """보너스: 뉴스 감성(긍정/부정/중립) 분포."""
+    counter = Counter(r["sentiment"] for r in rows if r.get("sentiment"))
+    labels = list(counter.keys())
+    values = [counter[k] for k in labels]
+    colors = [_SENTIMENT_COLORS.get(k, "#4C6EF5") for k in labels]
+
+    fig, ax = plt.subplots(figsize=(5.5, 5.5))
+    if values:
+        ax.pie(values, labels=labels, autopct="%1.0f%%", colors=colors, startangle=90)
+    ax.set_title("뉴스 감성 분포")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)

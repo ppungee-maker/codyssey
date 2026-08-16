@@ -1,6 +1,7 @@
 """AI 리뷰 감정 분석 대시보드 CLI.
 
-서브커맨드: import, clean, analyze, extract, list, show, stats, dashboard, export
+필수 서브커맨드: import, clean, analyze, extract, list, show, stats, dashboard, export
+보너스 서브커맨드: compare (제품/카테고리 비교), dashboard가 HTML 대시보드도 함께 생성
 
     python -m src.main import --file sample_data/reviews_sample.csv
     python -m src.main clean
@@ -11,6 +12,7 @@
     python -m src.main stats
     python -m src.main dashboard
     python -m src.main export --format csv --sentiment 부정
+    python -m src.main compare
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from .ai.mock_provider import MockExtractor, MockSentimentAnalyzer
 from .cleaner import clean_review
 from .config import AppConfig
 from .exporter import export as export_data
+from .html_dashboard import build_html, save_html
 from .importer import import_reviews
 from .logging_setup import setup_logging
 from .visualize import rating_sentiment_correlation, sentiment_distribution, sentiment_trend
@@ -137,8 +140,32 @@ def cmd_dashboard(config: AppConfig, args, logger) -> None:
 
     out_path = OUTPUT_DIR / "dashboard_report.md"
     report_mod.save_report(text, out_path)
+
+    with db.connect(config.db_path) as conn:
+        stats = query.compute_stats(conn)
+    html_text = build_html(
+        stats=stats, report_text=text,
+        chart_paths={
+            "감정 분포": OUTPUT_DIR / "chart_sentiment.png",
+            "시간별 감정 추이": OUTPUT_DIR / "chart_trend.png",
+            "별점별 감정 분포": OUTPUT_DIR / "chart_rating_sentiment.png",
+        },
+    )
+    html_path = OUTPUT_DIR / "dashboard.html"
+    save_html(html_text, html_path)
+
     print(text)
-    print(f"\n[완료] 대시보드: chart_sentiment.png, chart_trend.png, chart_rating_sentiment.png, {out_path.name}")
+    print(
+        f"\n[완료] 대시보드: chart_sentiment.png, chart_trend.png, chart_rating_sentiment.png, "
+        f"{out_path.name}, [보너스] {html_path.name}"
+    )
+
+
+def cmd_compare(config: AppConfig, args, logger) -> None:
+    """보너스: 제품별 리뷰 건수/평균 별점/감정 비율 비교."""
+    with db.connect(config.db_path) as conn:
+        results = query.compare_products(conn)
+    print(json.dumps(results, ensure_ascii=False, indent=2))
 
 
 def cmd_export(config: AppConfig, args, logger) -> None:
@@ -200,6 +227,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_export.add_argument("--sentiment", choices=["긍정", "부정", "중립"], default=None)
     p_export.add_argument("--rating-min", type=int, default=None)
     p_export.set_defaults(func=cmd_export)
+
+    p_compare = sub.add_parser("compare", help="[보너스] 제품별 비교 분석")
+    p_compare.set_defaults(func=cmd_compare)
 
     return parser
 

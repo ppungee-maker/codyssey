@@ -6,15 +6,17 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections import Counter
 
-from .base import Analyzer, Summarizer
+from .base import Analyzer, SentimentAnalyzer, Summarizer
 
 _STOPWORDS = {
     "the", "a", "an", "of", "to", "in", "on", "for", "and", "is", "are", "with",
     "how", "why", "what", "new", "show", "hn", "now", "says", "after", "into",
-    "from", "that", "this", "will", "can", "not", "its", "it's",
+    "from", "that", "this", "will", "can", "not", "its", "it's", "as", "at",
+    "it", "their", "why", "who", "you", "your",
 }
 
 
@@ -53,3 +55,36 @@ class MockAnalyzer(Analyzer):
             "common_or_diff": common_or_diff,
             "implications": implications,
         }
+
+
+_POSITIVE_WORDS = [
+    "launch", "win", "growth", "breakthrough", "record", "success", "boost",
+    "raise", "surge", "approve", "성공", "출시", "호평", "성장",
+]
+_NEGATIVE_WORDS = [
+    "hack", "breach", "ban", "crash", "layoff", "fraud", "lawsuit", "fail",
+    "decline", "warn", "outage", "논란", "실패", "해킹", "장애",
+]
+
+
+class MockSentimentAnalyzer(SentimentAnalyzer):
+    """보너스: 뉴스 제목의 감성 분석 (긍정/부정/중립 키워드 사전 기반)."""
+
+    def analyze_sentiment(self, title: str) -> tuple[str, float]:
+        lowered = title.lower()
+        pos = sum(1 for w in _POSITIVE_WORDS if w in lowered)
+        neg = sum(1 for w in _NEGATIVE_WORDS if w in lowered)
+
+        if pos == neg:
+            sentiment = "중립"
+            confidence = 0.5
+        elif pos > neg:
+            sentiment = "긍정"
+            confidence = 0.5 + 0.5 * (pos - neg) / (pos + neg)
+        else:
+            sentiment = "부정"
+            confidence = 0.5 + 0.5 * (neg - pos) / (pos + neg)
+
+        jitter = (int(hashlib.sha256(title.encode()).hexdigest()[:4], 16) % 10) / 100
+        confidence = max(0.0, min(1.0, round(confidence - jitter, 2)))
+        return sentiment, confidence

@@ -20,6 +20,11 @@ class LLMProvider(ABC):
     @abstractmethod
     def generate_palette(self, brief: BrandBrief) -> ColorPalette: ...
 
+    @abstractmethod
+    def analyze_competitors(self, brief: BrandBrief) -> list[dict]:
+        """보너스: brief.competitors 각각에 대해 {'name','analysis','differentiation'} 반환."""
+        ...
+
 
 class ImageProvider(ABC):
     @abstractmethod

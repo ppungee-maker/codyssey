@@ -52,3 +52,27 @@ def compute_stats(conn: sqlite3.Connection) -> dict:
         "average_rating": round(avg_rating, 2),
         "rated_count": len(ratings),
     }
+
+
+def compare_products(conn: sqlite3.Connection) -> list[dict]:
+    """보너스: 제품별 리뷰 건수/평균 별점/감정 비율을 비교한다."""
+    rows = db.fetch_clean(conn)
+    by_product: dict[str, list] = {}
+    for r in rows:
+        name = r["product_name"] or "(제품 미지정)"
+        by_product.setdefault(name, []).append(r)
+
+    results = []
+    for name, product_rows in by_product.items():
+        ratings = [r["rating"] for r in product_rows if r["rating"] is not None]
+        sentiments = Counter(r["sentiment"] for r in product_rows if r["sentiment"])
+        total = len(product_rows)
+        results.append({
+            "product_name": name,
+            "review_count": total,
+            "average_rating": round(sum(ratings) / len(ratings), 2) if ratings else None,
+            "sentiment_ratio": {
+                k: round(v / total * 100, 1) if total else 0.0 for k, v in sentiments.items()
+            },
+        })
+    return sorted(results, key=lambda x: x["average_rating"] or 0)

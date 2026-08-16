@@ -1,6 +1,7 @@
 """AI 뉴스 트렌드 분석 리포트 CLI.
 
-서브커맨드: fetch, clean, summarize, analyze, report, export
+필수 서브커맨드: fetch, clean, summarize, analyze, report, export
+보너스 서브커맨드: list, show, sentiment
 
     python -m src.main fetch --limit 20
     python -m src.main clean
@@ -8,23 +9,27 @@
     python -m src.main analyze --category AI
     python -m src.main report
     python -m src.main export --format csv --status summarized
+    python -m src.main list --category AI --page 1
+    python -m src.main show --id 3
+    python -m src.main sentiment --all
 """
 
 from __future__ import annotations
 
 import argparse
+import json as json_mod
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 from . import db, report as report_mod
-from .ai.mock_provider import MockAnalyzer, MockSummarizer
+from .ai.mock_provider import MockAnalyzer, MockSentimentAnalyzer, MockSummarizer
 from .cleaner import clean_record
 from .collectors import crawler, rss_collector
 from .config import AppConfig
 from .exporter import export as export_data
 from .logging_setup import setup_logging
-from .visualize import category_distribution, daily_trend
+from .visualize import category_distribution, daily_trend, sentiment_distribution
 
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output"
 
@@ -124,6 +129,62 @@ def cmd_report(config: AppConfig, args, logger) -> None:
     print(f"\n[완료] 리포트 저장: {out_path}, 차트: chart_category.png, chart_daily_trend.png")
 
 
+def cmd_list(config: AppConfig, args, logger) -> None:
+    """보너스: 뉴스 목록 조회 (필터 + 페이지네이션)."""
+    page_size = 10
+    with db.connect(config.db_path) as conn:
+        rows = db.fetch_clean(
+            conn, category=args.category, keyword=args.keyword,
+            date_from=args.date_from, date_to=args.date_to,
+            limit=page_size, offset=(args.page - 1) * page_size,
+        )
+        total = len(db.fetch_clean(
+            conn, category=args.category, keyword=args.keyword,
+            date_from=args.date_from, date_to=args.date_to,
+        ))
+    print(f"총 {total}건 중 {len(rows)}건 (page {args.page})")
+    for r in rows:
+        print(f"  #{r['id']:<4} [{r['category']}] {r['title'][:50]}")
+
+
+def cmd_show(config: AppConfig, args, logger) -> None:
+    """보너스: 뉴스 상세 조회."""
+    with db.connect(config.db_path) as conn:
+        row = db.fetch_by_id(conn, args.id)
+        if row is None:
+            print(f"[에러] id={args.id} 뉴스를 찾을 수 없습니다")
+            return
+        summary_row = conn.execute(
+            "SELECT summary FROM summaries WHERE news_id = ? ORDER BY id DESC LIMIT 1", (args.id,)
+        ).fetchone()
+    data = dict(row)
+    data["summary"] = summary_row["summary"] if summary_row else None
+    print(json_mod.dumps(data, ensure_ascii=False, indent=2))
+
+
+def cmd_sentiment(config: AppConfig, args, logger) -> None:
+    """보너스: 뉴스 제목 감성 분석."""
+    analyzer = MockSentimentAnalyzer()
+    now = _now_iso()
+    with db.connect(config.db_path) as conn:
+        rows = db.fetch_clean(conn, category=args.category) if args.category else db.fetch_clean(conn)
+        for row in rows:
+            try:
+                sentiment, confidence = analyzer.analyze_sentiment(row["title"])
+                db.save_sentiment(conn, news_id=row["id"], sentiment=sentiment,
+                                   confidence=confidence, created_at=now)
+            except Exception as exc:
+                logger.error("감성분석 실패 (id=%s): %s", row["id"], exc)
+
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        all_rows = [dict(r) for r in conn.execute(
+            "SELECT c.*, s.sentiment FROM clean_news c LEFT JOIN sentiments s "
+            "ON s.news_id = c.id AND s.id = (SELECT MAX(id) FROM sentiments WHERE news_id = c.id)"
+        ).fetchall()]
+    sentiment_distribution(all_rows, OUTPUT_DIR / "chart_sentiment.png")
+    print(f"[완료] sentiment: {len(rows)}건 분석 -> chart_sentiment.png")
+
+
 def cmd_export(config: AppConfig, args, logger) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     ext = {"csv": "csv", "jsonl": "jsonl", "excel": "xlsx"}[args.format]
@@ -166,6 +227,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_export.add_argument("--format", choices=["csv", "jsonl", "excel"], default="csv")
     p_export.add_argument("--status", choices=["summarized"], default=None)
     p_export.set_defaults(func=cmd_export)
+
+    p_list = sub.add_parser("list", help="[보너스] 뉴스 목록 조회")
+    p_list.add_argument("--category", type=str, default=None)
+    p_list.add_argument("--keyword", type=str, default=None)
+    p_list.add_argument("--date-from", type=str, default=None)
+    p_list.add_argument("--date-to", type=str, default=None)
+    p_list.add_argument("--page", type=int, default=1)
+    p_list.set_defaults(func=cmd_list)
+
+    p_show = sub.add_parser("show", help="[보너스] 뉴스 상세 조회")
+    p_show.add_argument("--id", type=int, required=True)
+    p_show.set_defaults(func=cmd_show)
+
+    p_sentiment = sub.add_parser("sentiment", help="[보너스] 뉴스 감성 분석 + 시각화")
+    p_sentiment.add_argument("--category", type=str, default=None, help="지정 시 해당 카테고리만, 미지정 시 전체")
+    p_sentiment.set_defaults(func=cmd_sentiment)
 
     return parser
 

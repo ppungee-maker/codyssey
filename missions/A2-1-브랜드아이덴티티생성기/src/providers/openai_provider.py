@@ -41,10 +41,14 @@ class OpenAILLMProvider(LLMProvider):
     def generate_naming(self, brief: BrandBrief) -> list[NamingCandidate]:
         prompt = (
             f"업종: {brief.industry}\n타겟: {brief.target}\n키워드: {', '.join(brief.keywords)}\n"
-            '위 브리프로 브랜드명 후보 3~5개를 {"namings": [{"name": "...", "meaning": "..."}]} JSON으로.'
+            "위 브리프로 브랜드명 후보 3~5개를 한글명(name)과 영문명(name_en) 둘 다 포함해 "
+            '{"namings": [{"name": "...", "name_en": "...", "meaning": "..."}]} JSON으로.'
         )
         data = _ask_json(self._client, prompt)
-        return [NamingCandidate(n["name"], n["meaning"]) for n in data.get("namings", [])]
+        return [
+            NamingCandidate(n["name"], n["meaning"], n.get("name_en"))
+            for n in data.get("namings", [])
+        ]
 
     def generate_slogans(self, brief: BrandBrief) -> list[str]:
         prompt = (
@@ -70,6 +74,18 @@ class OpenAILLMProvider(LLMProvider):
         )
         data = _ask_json(self._client, prompt)
         return ColorPalette(main=data["main"], subs=list(data.get("subs", [])))
+
+    def analyze_competitors(self, brief: BrandBrief) -> list[dict]:
+        if not brief.competitors:
+            return []
+        prompt = (
+            f"업종: {brief.industry}\n타겟: {brief.target}\n키워드: {', '.join(brief.keywords)}\n"
+            f"경쟁사: {', '.join(brief.competitors)}\n"
+            "각 경쟁사에 대해 간단 분석과 우리 브랜드의 차별화 포인트를 "
+            '{"competitors": [{"name": "...", "analysis": "...", "differentiation": "..."}]} JSON으로.'
+        )
+        data = _ask_json(self._client, prompt)
+        return list(data.get("competitors", []))
 
 
 class OpenAIImageProvider(ImageProvider):

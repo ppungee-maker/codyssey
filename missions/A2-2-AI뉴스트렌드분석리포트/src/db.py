@@ -46,6 +46,14 @@ CREATE TABLE IF NOT EXISTS analyses (
     result_json TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS sentiments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    news_id INTEGER NOT NULL REFERENCES clean_news(id),
+    sentiment TEXT NOT NULL,   -- 긍정 | 부정 | 중립
+    confidence REAL NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 
@@ -108,7 +116,9 @@ def upsert_clean(conn: sqlite3.Connection, *, raw_id: int, url: str, title: str,
 
 
 def fetch_clean(conn: sqlite3.Connection, *, only_unsummarized: bool = False,
-                 category: str | None = None) -> list[sqlite3.Row]:
+                 category: str | None = None, keyword: str | None = None,
+                 date_from: str | None = None, date_to: str | None = None,
+                 limit: int | None = None, offset: int = 0) -> list[sqlite3.Row]:
     query = "SELECT * FROM clean_news WHERE 1=1"
     params: list = []
     if only_unsummarized:
@@ -116,8 +126,37 @@ def fetch_clean(conn: sqlite3.Connection, *, only_unsummarized: bool = False,
     if category:
         query += " AND category = ?"
         params.append(category)
+    if keyword:
+        query += " AND title LIKE ?"
+        params.append(f"%{keyword}%")
+    if date_from:
+        query += " AND collected_at >= ?"
+        params.append(date_from)
+    if date_to:
+        query += " AND collected_at <= ?"
+        params.append(date_to)
     query += " ORDER BY collected_at DESC"
+    if limit:
+        query += " LIMIT ? OFFSET ?"
+        params += [limit, offset]
     return conn.execute(query, params).fetchall()
+
+
+def fetch_by_id(conn: sqlite3.Connection, news_id: int) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT c.*, s.sentiment, s.confidence FROM clean_news c "
+        "LEFT JOIN sentiments s ON s.news_id = c.id AND s.id = ("
+        "  SELECT MAX(id) FROM sentiments WHERE news_id = c.id) WHERE c.id = ?",
+        (news_id,),
+    ).fetchone()
+
+
+def save_sentiment(conn: sqlite3.Connection, *, news_id: int, sentiment: str,
+                    confidence: float, created_at: str) -> None:
+    conn.execute(
+        "INSERT INTO sentiments (news_id, sentiment, confidence, created_at) VALUES (?, ?, ?, ?)",
+        (news_id, sentiment, confidence, created_at),
+    )
 
 
 def save_summary(conn: sqlite3.Connection, *, news_id: int, summary: str, created_at: str) -> None:

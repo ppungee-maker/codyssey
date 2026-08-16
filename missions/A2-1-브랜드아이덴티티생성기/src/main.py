@@ -64,6 +64,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  - brand_result.json (네이밍 {len(result.namings)}개, 슬로건 {len(result.slogans)}개)")
     print(f"  - color_palette.png ({'생성됨' if result.palette else '실패'})")
     print(f"  - 로고 시안 {len(result.logo_files)}개: {', '.join(result.logo_files) or '없음'}")
+    if result.competitor_analysis:
+        print(f"  - [보너스] 경쟁사 분석 {len(result.competitor_analysis)}건")
+    if result.namings and result.namings[0].name_en:
+        print(f"  - [보너스] 영문 네이밍: {', '.join(n.name_en for n in result.namings if n.name_en)}")
     if result.errors:
         print(f"  - [주의] 일부 단계 실패: {len(result.errors)}건 (brand_result.json의 errors 참고)")
 

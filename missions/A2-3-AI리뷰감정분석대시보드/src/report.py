@@ -5,8 +5,57 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+
+
+def check_negative_spike(
+    conn: sqlite3.Connection, *, recent_days: int = 7, baseline_days: int = 30,
+    threshold_pp: float = 15.0,
+) -> dict:
+    """보너스: 최근 N일 부정 리뷰 비율이 그 이전 기간 대비 급증했는지 확인한다.
+
+    threshold_pp(퍼센트포인트) 이상 높으면 경고. 데이터가 부족하면 정상으로 간주.
+    """
+    rows = conn.execute(
+        "SELECT c.review_date, s.sentiment FROM clean_reviews c "
+        "LEFT JOIN sentiments s ON s.review_id = c.id AND s.id = ("
+        "  SELECT MAX(id) FROM sentiments WHERE review_id = c.id) "
+        "WHERE c.review_date IS NOT NULL AND s.sentiment IS NOT NULL"
+    ).fetchall()
+    if not rows:
+        return {"triggered": False, "reason": "분석된 리뷰 없음"}
+
+    dates = [date.fromisoformat(r["review_date"]) for r in rows]
+    latest = max(dates)
+    recent_cutoff = latest - timedelta(days=recent_days)
+    baseline_cutoff = latest - timedelta(days=recent_days + baseline_days)
+
+    def ratio(rows_subset):
+        total = len(rows_subset)
+        if total == 0:
+            return None
+        neg = sum(1 for r in rows_subset if r["sentiment"] == "부정")
+        return neg / total * 100
+
+    recent_rows = [r for r, d in zip(rows, dates) if d > recent_cutoff]
+    baseline_rows = [r for r, d in zip(rows, dates) if baseline_cutoff < d <= recent_cutoff]
+
+    recent_ratio = ratio(recent_rows)
+    baseline_ratio = ratio(baseline_rows)
+
+    if recent_ratio is None or baseline_ratio is None:
+        return {"triggered": False, "reason": "비교할 이전 기간 데이터 부족", "recent_ratio": recent_ratio}
+
+    spike = recent_ratio - baseline_ratio
+    return {
+        "triggered": spike >= threshold_pp,
+        "recent_ratio": round(recent_ratio, 1),
+        "baseline_ratio": round(baseline_ratio, 1),
+        "spike_pp": round(spike, 1),
+        "recent_days": recent_days,
+        "baseline_days": baseline_days,
+    }
 
 
 def build_report(conn: sqlite3.Connection) -> str:
@@ -48,6 +97,23 @@ def build_report(conn: sqlite3.Connection) -> str:
     ]
     for name, avg, cnt in top_products:
         lines.append(f"- {name}: 평균 {avg:.2f}점 ({cnt}건)")
+
+    spike = check_negative_spike(conn)
+    lines.append("")
+    lines.append("## 알림 (보너스: 감정 변화 급증 체크)")
+    if spike.get("triggered"):
+        lines.append(
+            f"- ⚠️ 경고: 최근 {spike['recent_days']}일 부정비율 {spike['recent_ratio']}% "
+            f"vs 이전 {spike['baseline_days']}일 {spike['baseline_ratio']}% "
+            f"(+{spike['spike_pp']}pt 급증)"
+        )
+    elif "recent_ratio" in spike and spike.get("baseline_ratio") is not None:
+        lines.append(
+            f"- 정상 범위: 최근 {spike['recent_days']}일 부정비율 {spike['recent_ratio']}% "
+            f"vs 이전 {spike['baseline_days']}일 {spike['baseline_ratio']}%"
+        )
+    else:
+        lines.append(f"- 판단 불가: {spike.get('reason', '데이터 부족')}")
 
     lines.append("")
     lines.append("## AI 추출 결과")

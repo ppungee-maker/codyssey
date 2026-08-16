@@ -59,6 +59,13 @@ def run(
         result.errors.append(f"로고 시안 생성 실패: {exc}")
         print(f"[에러] 로고 시안 생성 실패: {exc}")
 
+    if brief.competitors:  # 보너스: 경쟁사 분석
+        try:
+            result.competitor_analysis = llm.analyze_competitors(brief)
+        except Exception as exc:
+            result.errors.append(f"경쟁사 분석 실패: {exc}")
+            print(f"[에러] 경쟁사 분석 실패: {exc}")
+
     (out_dir / "brand_result.json").write_text(
         json.dumps(result.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8"
     )

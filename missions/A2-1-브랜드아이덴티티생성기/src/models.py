@@ -52,9 +52,10 @@ class BrandBrief:
 class NamingCandidate:
     name: str
     meaning: str
+    name_en: str | None = None  # 보너스: 다국어(영문) 네이밍
 
     def to_dict(self) -> dict:
-        return {"name": self.name, "meaning": self.meaning}
+        return {"name": self.name, "meaning": self.meaning, "name_en": self.name_en}
 
 
 @dataclass
@@ -74,6 +75,7 @@ class BrandResult:
     story: str = ""
     palette: ColorPalette | None = None
     logo_files: list[str] = field(default_factory=list)
+    competitor_analysis: list[dict] = field(default_factory=list)  # 보너스: 경쟁사 분석
     errors: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -91,5 +93,6 @@ class BrandResult:
             "story": self.story,
             "palette": self.palette.to_dict() if self.palette else None,
             "logo_files": self.logo_files,
+            "competitor_analysis": self.competitor_analysis,
             "errors": self.errors,
         }

@@ -19,10 +19,23 @@ _NEGATIVE_WORDS = [
     "고장", "실망", "불편", "별로", "아쉽", "힘들", "파손", "부실", "끊기", "느리",
 ]
 
+# 보너스(다국어 감정분석): 영문 리뷰도 같은 로직으로 처리할 수 있도록 영문 키워드 사전 추가.
+_POSITIVE_WORDS_EN = [
+    "good", "great", "love", "excellent", "satisfied", "comfortable", "fast",
+    "recommend", "reliable", "worth",
+]
+_NEGATIVE_WORDS_EN = [
+    "broken", "disappointed", "uncomfortable", "bad", "poor", "difficult",
+    "damaged", "cheap", "slow", "terrible",
+]
+
 
 def _score(text: str) -> tuple[int, int]:
+    lowered = text.lower()
     pos = sum(text.count(w) for w in _POSITIVE_WORDS)
+    pos += sum(lowered.count(w) for w in _POSITIVE_WORDS_EN)
     neg = sum(text.count(w) for w in _NEGATIVE_WORDS)
+    neg += sum(lowered.count(w) for w in _NEGATIVE_WORDS_EN)
     return pos, neg
 
 
@@ -59,7 +72,9 @@ def _strip_particle(word: str) -> str:
 
 
 def _extract_words(text: str) -> list[str]:
-    return [_strip_particle(w) for w in re.findall(r"[가-힣]{2,}", text)]
+    korean = [_strip_particle(w) for w in re.findall(r"[가-힣]{2,}", text)]
+    english = [w.lower() for w in re.findall(r"[A-Za-z]{3,}", text)]
+    return korean + english
 
 
 class MockExtractor(Extractor):

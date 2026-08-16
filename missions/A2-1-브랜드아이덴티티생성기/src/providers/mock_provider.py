@@ -18,6 +18,32 @@ from ..models import BrandBrief, ColorPalette, NamingCandidate
 from .base import ImageProvider, LLMProvider
 
 _NAME_SUFFIXES = ["랩", "웍스", "베이스", "허브", "루트", "스튜디오"]
+_EN_SUFFIXES = ["Labs", "Works", "Hub", "Base", "Studio", "Co"]
+
+# 보너스(다국어 네이밍)용 한->영 근사 사전. 사전에 없는 단어는 발음 그대로 로마자 폴백.
+# mock 구현이라 실제 번역 품질은 아님 — 실 API 연동 시 openai_provider가 이 자리를 대체.
+_EN_HINTS: dict[str, str] = {
+    "집중": "Focus", "루틴": "Routine", "느긋함": "Ease", "여유": "Ease",
+    "커피": "Coffee", "스페셜티": "Specialty", "빵": "Bread", "베이커리": "Bakery",
+    "건강": "Health", "운동": "Fit", "여행": "Journey", "책": "Read",
+    "디자인": "Design", "속도": "Speed", "신뢰": "Trust", "감성": "Mood",
+    "프리미엄": "Premium", "친환경": "Eco", "미니멀": "Minimal", "스마트": "Smart",
+}
+
+_ROMAN_MAP = str.maketrans({
+    "가": "ga", "나": "na", "다": "da", "라": "ra", "마": "ma", "바": "ba", "사": "sa",
+    "아": "a", "자": "ja", "차": "cha", "카": "ka", "타": "ta", "파": "pa", "하": "ha",
+})
+
+
+def _romanize_fallback(word: str) -> str:
+    """사전에 없는 한글 단어의 아주 단순한 음차 폴백 (완전한 로마자 변환기는 아님)."""
+    roman = word.translate(_ROMAN_MAP)
+    return roman.capitalize() if roman != word else "Brand"
+
+
+def _to_english(word: str) -> str:
+    return _EN_HINTS.get(word.strip(), _romanize_fallback(word.strip()))
 
 _SLOGAN_TEMPLATES = [
     "{keyword}, 이제 {target}의 새로운 기준입니다.",
@@ -48,12 +74,14 @@ class MockLLMProvider(LLMProvider):
         for i in range(4):
             kw = rng.choice(brief.keywords).strip()
             suffix = _NAME_SUFFIXES[i % len(_NAME_SUFFIXES)]
+            en_suffix = _EN_SUFFIXES[i % len(_EN_SUFFIXES)]
             name = f"{kw}{suffix}"
+            name_en = f"{_to_english(kw)} {en_suffix}"
             meaning = (
                 f"'{kw}'에서 착안한 이름으로, {brief.industry} 영역에서 "
                 f"{brief.target}에게 어필하는 '{suffix}' 컨셉을 담았습니다."
             )
-            candidates.append(NamingCandidate(name=name, meaning=meaning))
+            candidates.append(NamingCandidate(name=name, meaning=meaning, name_en=name_en))
         return candidates
 
     def generate_slogans(self, brief: BrandBrief) -> list[str]:
@@ -84,6 +112,25 @@ class MockLLMProvider(LLMProvider):
             return _TONE_PALETTES[brief.tone]
         rng = random.Random(_seed(brief) + 2)
         return rng.choice(_FALLBACK_PALETTES)
+
+    def analyze_competitors(self, brief: BrandBrief) -> list[dict]:
+        """보너스: 입력된 경쟁사 각각에 대해 간단한 차별화 포인트를 제안한다."""
+        results = []
+        for competitor in brief.competitors:
+            analysis = (
+                f"'{competitor}'는 {brief.industry} 시장에서 이미 인지도를 확보한 브랜드로 보입니다. "
+                f"우리 브랜드는 '{', '.join(brief.keywords)}' 키워드를 중심으로 {brief.target}에게 "
+                f"더 구체적으로 어필할 여지가 있습니다."
+            )
+            differentiation = (
+                f"{competitor}가 다루지 않는 '{brief.keywords[0]}' 경험을 전면에 내세우는 포지셔닝을 제안합니다."
+            )
+            results.append({
+                "name": competitor,
+                "analysis": analysis,
+                "differentiation": differentiation,
+            })
+        return results
 
 
 _KOREAN_FONT_CANDIDATES = [
