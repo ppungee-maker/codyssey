@@ -98,14 +98,24 @@ class MockLLMProvider(LLMProvider):
 
     def generate_story(self, brief: BrandBrief) -> str:
         tone = brief.tone or "진솔한"
-        notes = f" {brief.notes}" if brief.notes else ""
+        notes_sentence = f" 참고로 {brief.notes}." if brief.notes else ""
+        competitor_sentence = (
+            f" {', '.join(brief.competitors)} 같은 브랜드들이 놓치고 있는 지점을 파고들어 차별화를 만들어가고 있습니다."
+            if brief.competitors
+            else ""
+        )
         story = (
             f"{brief.industry} 시장에서 {brief.target}가 겪는 불편함을 지켜보며 브랜드가 시작됐습니다. "
             f"핵심 키워드인 '{', '.join(brief.keywords)}'를 중심으로, {tone} 태도로 문제를 풀어가고자 합니다. "
-            f"경쟁이 치열한 이 영역에서도 {brief.target}가 가장 먼저 떠올리는 이름이 되는 것이 목표입니다."
-            f"{notes}"
+            f"거창한 슬로건보다 실제 경험의 디테일에 집중해, 사용할수록 신뢰가 쌓이는 브랜드를 지향합니다. "
+            f"경쟁이 치열한 이 영역에서도 {brief.target}가 가장 먼저 떠올리는 이름이 되는 것이 목표이며, "
+            f"작은 습관 하나를 바꾸는 것에서부터 브랜드의 존재 이유를 증명해가려 합니다."
+            f"{competitor_sentence}{notes_sentence}"
         )
-        return story[:320]
+        if len(story) > 500:
+            cut = story.rfind(". ", 0, 500)
+            story = story[: cut + 1] if cut != -1 else story[:500]
+        return story
 
     def generate_palette(self, brief: BrandBrief) -> ColorPalette:
         if brief.tone and brief.tone in _TONE_PALETTES:

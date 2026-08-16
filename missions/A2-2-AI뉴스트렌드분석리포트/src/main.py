@@ -106,9 +106,12 @@ def cmd_analyze(config: AppConfig, args, logger) -> None:
     analyzer = MockAnalyzer()
     now = _now_iso()
     with db.connect(config.db_path) as conn:
-        rows = db.fetch_clean(conn, category=args.category)
+        rows = db.fetch_clean(
+            conn, category=args.category, date_from=args.date_from, date_to=args.date_to,
+        )
         titles = [r["title"] for r in rows]
-        scope = args.category or "전체"
+        scope_parts = [args.category, args.date_from, args.date_to]
+        scope = " ".join(p for p in scope_parts if p) or "전체"
         result = analyzer.analyze(titles, scope)
         db.save_analysis(conn, scope=scope, result=result, created_at=now)
     print(f"[완료] analyze(scope={scope}): {len(titles)}건 분석 -> {result['trend']}")
@@ -216,7 +219,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_analyze = sub.add_parser("analyze", help="AI 종합 인사이트 분석")
     p_analyze.add_argument("--category", type=str, default=None)
-    p_analyze.add_argument("--date", type=str, default=None, help="(예약 옵션 — 현재는 category만 스코프)")
+    p_analyze.add_argument("--date-from", type=str, default=None, help="collected_at >= 이 값(ISO)")
+    p_analyze.add_argument("--date-to", type=str, default=None, help="collected_at <= 이 값(ISO)")
     p_analyze.set_defaults(func=cmd_analyze)
 
     p_report = sub.add_parser("report", help="리포트 + 차트 생성")
