@@ -1,0 +1,4 @@
+Pillow>=10.0
+matplotlib>=3.8
+# 실제 API 연동 시(선택):
+# openai>=1.0

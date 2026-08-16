@@ -62,9 +62,18 @@ API 경로에는 없다.
 
 구현: `src/codyssey/api.py` (`list_missions`, `fetch_mission`), CLI: `codyssey mission <label>`
 
----
+### `GET /learning/learningProgress/status/list`
 
-## 네이토 (AI 챗봇/생성)
+| | |
+|---|---|
+| 용도 | **이 계정이 속한 모든 과정(project)**의 미션을 한 번에 조회 — `lpNo` 파라미터 불필요, 계정 기준 전수 |
+| 인증 | `JSESSIONID` 쿠키 |
+| 응답 필드 | `result.uqstns[]` — 각 항목에 `projectNo`/`projectNm`(과정 번호/이름), `lcorsNo`, `uqstnNo`, `uqstnNm`, `useYn`, `uqstnForceEndYmd` 등 |
+| 발견 경위 | 대전 캠퍼스 계정으로 로그인 중, 이 계정에 **두 번째 과정**이 걸려있는 걸 여기서 처음 확인함: `projectNo=143002` = "AI 활용 학습 (AI Native Advanced)" (기존에 쓰던 `143003`="AI 도구 학습 Basic"과 별개) |
+| ⚠️ 주의 | `uqstnForceEndYmd`가 두 과정 다 오래된 날짜(예: 2026-03-11)로 찍혀 있어도 `useYn=Y`면 무시하고 넘어갈 것 — 서울 코디세이 공통 일정 값이 찍히는 것으로 보이며 실제 마감과 무관(제니형님 확인, 2026-08-16) |
+| 발굴일 | 2026-08-16 |
+
+
 
 베이스도 동일하게 `https://api.usr.codyssey.kr`, 인증도 동일 `JSESSIONID` 쿠키 — 별도 API 키 없음.
 사용법 전체(파라미터 조합·CLI 플래그 설계 근거)는 [`docs/naeto-seai-usage.md`](naeto-seai-usage.md) §1 참고,

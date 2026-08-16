@@ -1,0 +1,8 @@
+{
+  "dedup_policy": "skip",
+  "min_review_length": 5,
+  "ai_provider": "mock",
+  "ai_api_key": null,
+  "db_path": "data/reviews.db",
+  "page_size": 10
+}

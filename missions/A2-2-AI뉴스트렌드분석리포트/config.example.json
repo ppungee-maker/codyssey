@@ -1,0 +1,10 @@
+{
+  "rss_url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+  "rss_source_name": "BBC Technology",
+  "crawl_url": "https://news.ycombinator.com/",
+  "crawl_source_name": "Hacker News",
+  "dedup_policy": "skip",
+  "ai_provider": "mock",
+  "ai_api_key": null,
+  "db_path": "data/news.db"
+}
