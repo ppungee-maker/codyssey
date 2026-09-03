@@ -24,19 +24,21 @@ codyssey/
 > 바로 있었다. 미션이 하나둘 늘면 루트가 미션 폴더로 덮여서 `src/`·`docs/` 같은 진짜
 > 코드/문서 폴더를 찾기 어려워진다 — 그래서 전부 `missions/` 아래로 모은다.
 
-## 과정(project) 구분: `A{n}-` vs `B{n}-` 접두사
+## 과정(project) 구분: `M{n}-` / `A{n}-` / `B{n}-` 접두사
 
-이 계정엔 학습 과정(project)이 **두 개** 걸려있다 — `docs/api-endpoints.md`
+이 계정엔 학습 과정(project)이 **세 개** 걸려있다 — `docs/api-endpoints.md`
 "`GET /learning/learningProgress/status/list`" 참고:
 
 - `lpNo=143003` "AI 도구 학습 (AI Native Basic)" → 미션 폴더 접두사 `B{그룹}-{순번}`
 - `lpNo=143002` "AI 활용 학습 (AI Native Advanced)" → 미션 폴더 접두사 `A{그룹}-{순번}`
+- `lpNo=143001` "AI 응용 학습 (AI Native Master)" → 미션 폴더 접두사 `M{그룹}-{순번}`
+  (그룹1=기초 스킬 2개, 그룹2=Project A/B/C 3개, 그룹3=Final Project 1개 — 2026-09-03 발굴)
 
 ⚠️ **알려진 버그**: `src/codyssey/api.py`의 `list_missions()`는 과정 구분 없이 항상
-`B` 접두사로 라벨을 만든다 — 그래서 `lp_no=143002`로 호출해도 `B2-1`처럼 나와
-143003의 진짜 `B2-1`과 라벨이 겹친다. `fetch_mission()`/`list_missions()` 호출 시
-반드시 `lp_no=143002`를 명시하고, **폴더명·문서·레포명에는 `A{n}-`로 직접 바꿔** 써서
-사람이 구분할 수 있게 한다(코드 수정은 아직 안 함 — 필요해지면 `list_missions()`에
+`B` 접두사로 라벨을 만든다 — 그래서 `lp_no=143002`나 `143001`로 호출해도 `B2-1`처럼
+나와 다른 과정의 진짜 `B2-1`과 라벨이 겹친다. `fetch_mission()`/`list_missions()` 호출
+시 반드시 `lp_no`를 명시하고, **폴더명·문서·레포명에는 `M{n}-`/`A{n}-`로 직접 바꿔**
+써서 사람이 구분할 수 있게 한다(코드 수정은 아직 안 함 — 필요해지면 `list_missions()`에
 `lp_no`에 따른 접두사 매핑을 추가할 것).
 
 ## `missions/` 내부 컨벤션 (미션 답안 폴더 1개당)
