@@ -3,6 +3,12 @@
 __pycache__/
 *.pyc
 
+# CDP 자동화용 Chrome for Testing (바이너리 + 전용 프로필, 다시 받으면 됨)
+.cft/
+
+# 미션별 전용 채점 repo 로컬 클론 (원본은 missions/, 여긴 배포용 워킹카피)
+.mission-repos/
+
 # 패키징 산출물
 build/
 dist/

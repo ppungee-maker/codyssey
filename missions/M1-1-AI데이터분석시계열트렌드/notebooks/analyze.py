@@ -7,10 +7,12 @@
     python notebooks/analyze.py
 
 산출물(images/final/):
-    01_price_trend.png       종가 + 이동평균(20/60일)
-    02_volatility.png        일일 변화율 + 20일 변동성(표준편차)
-    03_monthly_stats.png     월별 평균 종가 + 거래량
-    04_decomposition.png     [보너스] 추세/계절성 분해
+    01_price_trend.png            종가 + 이동평균(20/60일)
+    02_volatility.png             일일 변화율 + 20일 변동성(표준편차)
+    03_monthly_stats.png          월별 평균 종가 + 거래량
+    04_decomposition.png          [보너스] 추세/계절성 분해
+    05_aggregation_comparison.png [반례] 집계 단위(일/주/월)별 비교 — 같은 데이터도
+                                   집계 단위를 바꾸면 그림·변동성 수치가 달라짐을 시연
 """
 
 from __future__ import annotations
@@ -153,6 +155,40 @@ def chart_monthly_stats(df: pd.DataFrame, out_path: Path) -> None:
     plt.close(fig)
 
 
+def chart_aggregation_comparison(df: pd.DataFrame, out_path: Path) -> dict:
+    """[반례] 집계 단위(일/주/월)를 바꾸면 같은 데이터에서도 그림과 수치가 달라짐을
+    직접 보여준다 — 3절에서 "월 단위를 왜 썼는지" 설명한 것의 반례 검증판.
+    """
+    s = df.set_index("date")["close"]
+    weekly = s.resample("W").mean()
+    monthly = s.resample("ME").mean()
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 8))
+    ax1.plot(s.index, s.values, color="#CED4DA", linewidth=0.8, label="일별 원본")
+    ax1.plot(weekly.index, weekly.values, color="#4C6EF5", linewidth=1.3, label="주별 평균")
+    ax1.plot(monthly.index, monthly.values, color="#E8590C", linewidth=1.8, label="월별 평균")
+    ax1.set_title("집계 단위별 비교: 일/주/월 평균 종가 (같은 데이터, 다른 그림)")
+    ax1.set_ylabel("종가 (USD)")
+    ax1.legend()
+
+    daily_ret_std = df["daily_return"].std()
+    weekly_ret_std = (weekly.pct_change().dropna() * 100).std()
+    bars = ax2.bar(
+        ["일별 변화율\n표준편차", "주별 변화율\n표준편차"],
+        [daily_ret_std, weekly_ret_std],
+        color=["#4C6EF5", "#E8590C"],
+    )
+    ax2.set_ylabel("표준편차 (%)")
+    ax2.set_title("같은 데이터, 다른 집계 단위 → 다른 변동성 수치")
+    for bar, v in zip(bars, [daily_ret_std, weekly_ret_std]):
+        ax2.text(bar.get_x() + bar.get_width() / 2, v, f"{v:.2f}%", ha="center", va="bottom")
+
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return {"daily_return_std": round(daily_ret_std, 2), "weekly_return_std": round(weekly_ret_std, 2)}
+
+
 def decompose_trend_seasonality(df: pd.DataFrame, out_path: Path) -> dict:
     """보너스(A): 시계열 분해 — 이동평균 기반 고전적 분해(추세=중심이동평균,
     계절성=요일별 잔차 평균, 잔차=원본-추세-계절성). statsmodels 없이 직접 구현해
@@ -268,7 +304,11 @@ def main() -> None:
     chart_volatility(df, IMG_DIR / "02_volatility.png")
     chart_monthly_stats(df, IMG_DIR / "03_monthly_stats.png")
     decomp_info = decompose_trend_seasonality(df, IMG_DIR / "04_decomposition.png")
+    agg_info = chart_aggregation_comparison(df, IMG_DIR / "05_aggregation_comparison.png")
     forecast_info = baseline_forecast(df)
+
+    print("\n=== [반례] 집계 단위별 변동성 비교 ===")
+    print(f"  {agg_info}")
 
     insights = derive_insights(df, clean_log)
     print("\n=== 인사이트 ===")
@@ -281,7 +321,7 @@ def main() -> None:
     for k, v in forecast_info.items():
         print(f"  {k}: {v}")
 
-    print(f"\n[완료] 차트 4개 저장: {IMG_DIR}")
+    print(f"\n[완료] 차트 5개 저장: {IMG_DIR}")
 
 
 if __name__ == "__main__":
