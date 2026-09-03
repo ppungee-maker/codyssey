@@ -1,0 +1,8 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.5
+python-multipart>=0.0.9
+httpx>=0.27  # smoke_test.py의 TestClient가 사용 (런타임 필수 아님, 검증용)
+# 실제 배포 시(선택):
+# openai>=1.0
+# firebase-admin>=6.0

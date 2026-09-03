@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 비서 — 내 데이터를 아는 챗봇</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>AI 비서</h1>
+    <div>
+      <button id="export-btn" title="현재 데이터를 CSV로 내보내기">CSV 내보내기</button>
+      <button id="theme-toggle" title="다크 모드 전환">다크 모드</button>
+    </div>
+  </header>
+
+  <div class="summary-bar" id="summary-bar">
+    <div class="summary-card"><div class="label">데이터 건수</div><div class="value" id="s-count">-</div></div>
+    <div class="summary-card"><div class="label">기간</div><div class="value" id="s-period">-</div></div>
+    <div class="summary-card"><div class="label">평균</div><div class="value" id="s-mean">-</div></div>
+    <div class="summary-card"><div class="label">최고 / 최저</div><div class="value" id="s-maxmin">-</div></div>
+    <div class="summary-card"><div class="label">추세</div><div class="value" id="s-trend">-</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel" id="conversations-panel">
+      <h2>대화 기록</h2>
+      <button id="new-chat-btn" style="width:100%;margin-bottom:10px;padding:8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;">+ 새 대화</button>
+      <ul id="conversation-list"></ul>
+      <p class="hint">대화를 클릭하면 이어서 대화할 수 있습니다.</p>
+    </div>
+
+    <div class="panel" id="chat-panel">
+      <h2>채팅</h2>
+      <div id="messages"></div>
+      <form id="chat-form">
+        <input id="chat-input" type="text" placeholder="내 데이터에 대해 물어보세요 (예: 요즘 추세가 어때?)" autocomplete="off" required>
+        <button type="submit">보내기</button>
+      </form>
+    </div>
+
+    <div class="panel" id="data-panel">
+      <h2>데이터 관리</h2>
+      <form id="data-form">
+        <input id="data-date" type="date" required>
+        <input id="data-value" type="number" step="any" placeholder="값" required>
+        <input id="data-memo" type="text" placeholder="메모 (선택)">
+        <button type="submit">추가</button>
+      </form>
+      <ul id="data-list"></ul>
+      <p class="hint" id="data-count-hint"></p>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
