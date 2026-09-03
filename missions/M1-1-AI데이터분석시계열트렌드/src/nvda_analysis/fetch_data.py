@@ -14,7 +14,7 @@ from pathlib import Path
 
 import httpx
 
-OUT_PATH = Path(__file__).resolve().parent.parent / "data" / "nvda_2y_daily.csv"
+OUT_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "nvda_2y_daily.csv"
 URL = "https://query1.finance.yahoo.com/v8/finance/chart/NVDA"
 
 

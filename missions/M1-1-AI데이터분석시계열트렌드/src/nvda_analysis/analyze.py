@@ -4,7 +4,7 @@
 인증 불필요) — 2024-09-03 ~ 2026-09-02, 502 거래일.
 
 실행:
-    python notebooks/analyze.py
+    python src/nvda_analysis/analyze.py
 
 산출물(images/final/):
     01_price_trend.png            종가 + 이동평균(20/60일)
@@ -27,7 +27,7 @@ matplotlib.use("Agg")
 import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_PATH = ROOT / "data" / "nvda_2y_daily.csv"
 IMG_DIR = ROOT / "images" / "final"
 

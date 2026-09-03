@@ -24,11 +24,11 @@ AI 반도체 붐의 중심에 있는 엔비디아(NVDA) 주가가 지난 2년간
 | 데이터 포인트 | 502건 (요구사항 100건 이상 충족) |
 | 컬럼 | date, open, high, low, close, volume |
 | 원본 파일 | [`data/nvda_2y_daily.csv`](data/nvda_2y_daily.csv) |
-| 수집 코드 | [`notebooks/analyze.py`](notebooks/analyze.py) 실행 시 재현되는 수집 로직은 이 리포트 작성 시점에 별도 스크립트로 1회 실행 — `docs/00-실행가이드.md` 참고 |
+| 수집 코드 | [`src/nvda_analysis/analyze.py`](src/nvda_analysis/analyze.py) 실행 시 재현되는 수집 로직은 이 리포트 작성 시점에 별도 스크립트로 1회 실행 — `docs/00-실행가이드.md` 참고 |
 
 ### 3.1 분석 파이프라인
 
-`notebooks/analyze.py`는 아래 4단계를 순서대로 거친다(각 단계는 코드에서도 별도
+`src/nvda_analysis/analyze.py`는 아래 4단계를 순서대로 거친다(각 단계는 코드에서도 별도
 함수로 분리: `load_data → clean_data → apply_techniques → chart_*`).
 
 1. **로딩**: CSV를 읽어 `date` 기준 오름차순 정렬(`load_data`) — 이후 이동평균·변화율
@@ -222,7 +222,7 @@ AI 반도체 붐의 중심에 있는 엔비디아(NVDA) 주가가 지난 2년간
 
 ## 9. AI 활용 및 검증
 
-**AI 사용 로그**: 이 미션에서 AI(코딩 어시스턴트)는 (1) `notebooks/analyze.py`의
+**AI 사용 로그**: 이 미션에서 AI(코딩 어시스턴트)는 (1) `src/nvda_analysis/analyze.py`의
 정제·기법 적용·차트 함수 초안 작성, (2) 이 `REPORT.md`의 문장 다듬기와 구조화에
 사용했다. 원본 데이터 수집(`fetch_data.py`가 때리는 Yahoo Finance API 호출)과
 수치 계산 자체는 pandas/numpy의 결정적 연산이라 AI가 임의로 숫자를 지어낼 여지는
@@ -231,7 +231,7 @@ AI 반도체 붐의 중심에 있는 엔비디아(NVDA) 주가가 지난 2년간
 [`docs/01-AI사용로그.md`](docs/01-AI사용로그.md)에 별도로 정리했다.**
 
 **검증 방법**:
-1. **재현성 확인**: `python notebooks/analyze.py`를 다시 실행해 콘솔에 출력되는
+1. **재현성 확인**: `python src/nvda_analysis/analyze.py`를 다시 실행해 콘솔에 출력되는
    수치(수익률, 최고/최저가, 변동성 평균 등)가 이 리포트에 적힌 숫자와 정확히
    일치하는지 대조했다 — 코드와 리포트가 따로 노는(리포트만 손으로 고친) 상태가
    아님을 보장하는 최소한의 검증이다.
@@ -253,8 +253,8 @@ AI 반도체 붐의 중심에 있는 엔비디아(NVDA) 주가가 지난 2년간
 
 ```bash
 cd missions/M1-1-AI데이터분석시계열트렌드
-pip install -r requirements.txt
-python notebooks/analyze.py
+pip install -e .
+python src/nvda_analysis/analyze.py
 ```
 
 자세한 실행 가이드는 [`docs/00-실행가이드.md`](docs/00-실행가이드.md) 참고.

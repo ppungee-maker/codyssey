@@ -5,7 +5,7 @@
 보너스 요구사항을 실제 인터랙션으로 충족).
 
 실행:
-    python notebooks/build_dashboard.py
+    python src/nvda_analysis/build_dashboard.py
 산출물:
     dashboard/index.html
 """
@@ -16,7 +16,7 @@ import csv
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_PATH = ROOT / "data" / "nvda_2y_daily.csv"
 OUT_PATH = ROOT / "dashboard" / "index.html"
 

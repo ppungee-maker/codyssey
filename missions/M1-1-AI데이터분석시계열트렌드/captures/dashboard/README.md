@@ -6,7 +6,7 @@ Playwright로 직접 열고 기간 필터 버튼을 클릭해가며 캡처했다
 ## 실행 방법
 
 ```bash
-python notebooks/build_dashboard.py   # dashboard/index.html 생성
+python src/nvda_analysis/build_dashboard.py   # dashboard/index.html 생성
 open dashboard/index.html             # 브라우저에서 바로 열림 (배포 불필요)
 ```
 
